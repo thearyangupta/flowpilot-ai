@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 
-from app.api.router import api_router
+import app.models.execution
+import app.models.project
+import app.models.workflow
+
+from app.api.router import router
 from app.core.config import get_settings
 
 
@@ -13,7 +17,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(
-        api_router,
+        router,
         prefix="/api/v1",
     )
 
