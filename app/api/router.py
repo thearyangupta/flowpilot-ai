@@ -1,9 +1,12 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status , HTTPException
 from sqlalchemy.orm import Session
-
+from uuid import UUID
 from app.db.session import get_db
 from app.schemas.project import ProjectCreate, ProjectRead
 from app.services import project_service
+from app.schemas.workflow import WorkflowCreate, WorkflowRead
+from app.schemas.execution import ExecutionRead
+from app.models.enums import ExecutionStatus
 
 router = APIRouter()
 
@@ -29,3 +32,72 @@ def create_project(
     db: Session = Depends(get_db),
 ):
     return project_service.create(db, payload)
+
+
+@router.post(
+    "/projects/{project_id}/workflows",
+    response_model=WorkflowRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_workflow(
+    project_id: UUID,
+    payload: WorkflowCreate,
+    db: Session = Depends(get_db),
+):
+    try:
+        return project_service.create_workflow(
+            db=db,
+            project_id=project_id,
+            payload=payload,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+    
+
+@router.post(
+    "/projects/{project_id}/workflows/{workflow_id}/executions",
+    response_model=ExecutionRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_execution(
+    project_id: UUID,
+    workflow_id: UUID,
+    db: Session = Depends(get_db),
+):
+    try:
+        return project_service.create_execution(
+            db=db,
+            project_id=project_id,
+            workflow_id=workflow_id,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+    
+@router.get(
+    "/projects/{project_id}/workflows/{workflow_id}/executions",
+    response_model=list[ExecutionRead],
+)
+def list_executions(
+    project_id: UUID,
+    workflow_id: UUID,
+    execution_status: ExecutionStatus | None = None,
+    db: Session = Depends(get_db),
+):
+    try:
+        return project_service.get_executions(
+            db=db,
+            project_id=project_id,
+            workflow_id=workflow_id,
+            status=execution_status,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error

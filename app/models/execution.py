@@ -1,11 +1,12 @@
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import Enum as SQLEnum, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin
+from app.models.enums import ExecutionStatus
 
 if TYPE_CHECKING:
     from app.models.workflow import Workflow
@@ -20,15 +21,24 @@ class Execution(TimestampMixin, Base):
     )
 
     workflow_id: Mapped[UUID] = mapped_column(
-        ForeignKey("workflows.id",ondelete="CASCADE"),
+        ForeignKey(
+            "workflows.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
-        index= True,
+        index=True,
     )
 
-    status: Mapped[str] = mapped_column(
-        String(50),
+    status: Mapped[ExecutionStatus] = mapped_column(
+        SQLEnum(
+            ExecutionStatus,
+            name="execution_status",
+            values_callable=lambda enum_class: [
+                member.value for member in enum_class
+            ],
+        ),
         nullable=False,
-        default="pending",
+        default=ExecutionStatus.PENDING,
     )
 
     workflow: Mapped["Workflow"] = relationship(
