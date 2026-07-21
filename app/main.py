@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-
+from app.core.middleware import request_id_middleware
 import app.models.execution
 import app.models.project
 import app.models.workflow
@@ -15,6 +15,7 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version="0.1.0",
     )
+    app.middleware("http")(request_id_middleware)
 
     app.include_router(
         router,
