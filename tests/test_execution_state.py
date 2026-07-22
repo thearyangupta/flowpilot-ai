@@ -1,26 +1,26 @@
 import pytest
 
 from app.domain.execution_state import (
-    ExecutionStatus,
     InvalidTransition,
     ensure_transition,
 )
+from app.models.enums import ExecutionStatus
 
 
 @pytest.mark.parametrize(
     ("current", "target"),
     [
         (
-            ExecutionStatus.pending,
-            ExecutionStatus.running,
+            ExecutionStatus.PENDING,
+            ExecutionStatus.RUNNING,
         ),
         (
-            ExecutionStatus.running,
-            ExecutionStatus.completed,
+            ExecutionStatus.RUNNING,
+            ExecutionStatus.COMPLETED,
         ),
         (
-            ExecutionStatus.running,
-            ExecutionStatus.failed,
+            ExecutionStatus.RUNNING,
+            ExecutionStatus.FAILED,
         ),
     ],
 )
@@ -32,20 +32,20 @@ def test_allowed_transitions(current, target):
     ("current", "target"),
     [
         (
-            ExecutionStatus.pending,
-            ExecutionStatus.completed,
+            ExecutionStatus.PENDING,
+            ExecutionStatus.COMPLETED,
         ),
         (
-            ExecutionStatus.pending,
-            ExecutionStatus.failed,
+            ExecutionStatus.PENDING,
+            ExecutionStatus.FAILED,
         ),
         (
-            ExecutionStatus.completed,
-            ExecutionStatus.running,
+            ExecutionStatus.COMPLETED,
+            ExecutionStatus.RUNNING,
         ),
         (
-            ExecutionStatus.failed,
-            ExecutionStatus.running,
+            ExecutionStatus.FAILED,
+            ExecutionStatus.RUNNING,
         ),
     ],
 )

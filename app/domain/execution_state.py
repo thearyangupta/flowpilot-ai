@@ -1,11 +1,5 @@
 from enum import Enum
-
-
-class ExecutionStatus(str, Enum):
-    pending = "pending"
-    running = "running"
-    completed = "completed"
-    failed = "failed"
+from app.models.enums import ExecutionStatus
 
 
 class InvalidTransition(Exception):
@@ -25,19 +19,16 @@ class InvalidTransition(Exception):
         super().__init__(message)
 
 
-ALLOWED_TRANSITIONS: dict[
-    ExecutionStatus,
-    set[ExecutionStatus],
-] = {
-    ExecutionStatus.pending: {
-        ExecutionStatus.running,
+ALLOWED_TRANSITIONS = {
+    ExecutionStatus.PENDING: {
+        ExecutionStatus.RUNNING,
     },
-    ExecutionStatus.running: {
-        ExecutionStatus.completed,
-        ExecutionStatus.failed,
+    ExecutionStatus.RUNNING: {
+        ExecutionStatus.COMPLETED,
+        ExecutionStatus.FAILED,
     },
-    ExecutionStatus.completed: set(),
-    ExecutionStatus.failed: set(),
+    ExecutionStatus.COMPLETED: set(),
+    ExecutionStatus.FAILED: set(),
 }
 
 

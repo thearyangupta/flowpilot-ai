@@ -10,6 +10,7 @@ from app.db.mixins import TimestampMixin
 if TYPE_CHECKING:
     from app.models.execution import Execution
     from app.models.project import Project
+    from app.models.workflow_step import WorkflowStep
 
 
 class Workflow(TimestampMixin, Base):
@@ -21,9 +22,12 @@ class Workflow(TimestampMixin, Base):
     )
 
     project_id: Mapped[UUID] = mapped_column(
-        ForeignKey("projects.id",ondelete="CASCADE"),
+        ForeignKey(
+            "projects.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
-        index = True,
+        index=True,
     )
 
     name: Mapped[str] = mapped_column(
@@ -36,6 +40,13 @@ class Workflow(TimestampMixin, Base):
     )
 
     executions: Mapped[list["Execution"]] = relationship(
-    back_populates="workflow",
-    cascade="all, delete-orphan",
-)
+        back_populates="workflow",
+        cascade="all, delete-orphan",
+    )
+
+    steps: Mapped[list["WorkflowStep"]] = relationship(
+        back_populates="workflow",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="WorkflowStep.position",
+    )
