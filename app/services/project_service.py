@@ -3,15 +3,17 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.enums import ExecutionStatus
+from app.models.execution import Execution
 from app.models.project import Project
 from app.models.workflow import Workflow
 from app.schemas.project import ProjectCreate
-from app.schemas.workflow import WorkflowCreate
-from app.models.execution import Execution
-from app.models.enums import ExecutionStatus
 
 
-def create(db: Session, payload: ProjectCreate) -> Project:
+def create(
+    db: Session,
+    payload: ProjectCreate,
+) -> Project:
     project = Project(**payload.model_dump())
 
     db.add(project)
@@ -22,33 +24,13 @@ def create(db: Session, payload: ProjectCreate) -> Project:
 
 
 def get_all(db: Session) -> list[Project]:
-    statement = select(Project).order_by(Project.created_at.desc())
+    statement = select(Project).order_by(
+        Project.created_at.desc()
+    )
 
     projects = db.scalars(statement).all()
 
     return list(projects)
-
-
-def create_workflow(
-    db: Session,
-    project_id: UUID,
-    payload: WorkflowCreate,
-) -> Workflow:
-    project = db.get(Project, project_id)
-
-    if project is None:
-        raise ValueError("Project not found")
-
-    workflow = Workflow(
-        project_id=project.id,
-        **payload.model_dump(),
-    )
-
-    db.add(workflow)
-    db.commit()
-    db.refresh(workflow)
-
-    return workflow
 
 
 def create_execution(
@@ -67,7 +49,9 @@ def create_execution(
         raise ValueError("Workflow not found")
 
     if workflow.project_id != project.id:
-        raise ValueError("Workflow does not belong to this project")
+        raise ValueError(
+            "Workflow does not belong to this project"
+        )
 
     execution = Execution(
         workflow_id=workflow.id,
@@ -78,6 +62,7 @@ def create_execution(
     db.refresh(execution)
 
     return execution
+
 
 def get_executions(
     db: Session,
@@ -96,7 +81,9 @@ def get_executions(
         raise ValueError("Workflow not found")
 
     if workflow.project_id != project.id:
-        raise ValueError("Workflow does not belong to this project")
+        raise ValueError(
+            "Workflow does not belong to this project"
+        )
 
     statement = (
         select(Execution)
@@ -105,7 +92,9 @@ def get_executions(
     )
 
     if status is not None:
-        statement = statement.where(Execution.status == status)
+        statement = statement.where(
+            Execution.status == status
+        )
 
     executions = db.scalars(statement).all()
 

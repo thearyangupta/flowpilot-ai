@@ -7,6 +7,8 @@ from app.services import project_service
 from app.schemas.workflow import WorkflowCreate, WorkflowRead
 from app.schemas.execution import ExecutionRead
 from app.models.enums import ExecutionStatus
+from app.services import workflow_definition
+from sqlalchemy import text
 
 router = APIRouter()
 
@@ -45,7 +47,7 @@ def create_workflow(
     db: Session = Depends(get_db),
 ):
     try:
-        return project_service.create_workflow(
+        return workflow_definition.create_workflow_definition(
             db=db,
             project_id=project_id,
             payload=payload,
