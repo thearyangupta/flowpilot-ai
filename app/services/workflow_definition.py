@@ -7,16 +7,11 @@ from app.core.exceptions import (
     InvalidStepOrder,
     UnsupportedStepType,
 )
+from app.domain.step_registry import is_step_registered
+from app.models.project import Project
 from app.models.workflow import Workflow
 from app.models.workflow_step import WorkflowStep
 from app.schemas.workflow import StepCreate, WorkflowCreate
-from app.models.project import Project
-
-SUPPORTED_STEPS = {
-    "set_value",
-    "uppercase",
-    "require_key",
-}
 
 
 def validate_steps(steps: list[StepCreate]) -> None:
@@ -24,21 +19,21 @@ def validate_steps(steps: list[StepCreate]) -> None:
         raise EmptyWorkflowError()
 
     positions = [step.position for step in steps]
-    expected = list(range(1, len(steps) + 1))
+    expected_positions = list(range(1, len(steps) + 1))
 
-    if sorted(positions) != expected:
+    if sorted(positions) != expected_positions:
         raise InvalidStepOrder(positions)
 
-    unknown = sorted(
+    unsupported_step_types = sorted(
         {
             step.step_type
             for step in steps
-            if step.step_type not in SUPPORTED_STEPS
+            if not is_step_registered(step.step_type)
         }
     )
 
-    if unknown:
-        raise UnsupportedStepType(unknown)
+    if unsupported_step_types:
+        raise UnsupportedStepType(unsupported_step_types)
 
 
 def create_workflow_definition(
@@ -47,19 +42,19 @@ def create_workflow_definition(
     payload: WorkflowCreate,
 ) -> Workflow:
     validate_steps(payload.steps)
+
     project = db.get(Project, project_id)
 
     if project is None:
         raise ValueError("Project not found")
+
     try:
         workflow = Workflow(
-            project_id=project_id,
+            project_id=project.id,
             name=payload.name,
         )
 
         db.add(workflow)
-
-        # Makes workflow.id available without committing the transaction.
         db.flush()
 
         ordered_steps = sorted(
