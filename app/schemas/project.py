@@ -21,8 +21,8 @@ class ProjectCreate(BaseModel):
         return cleaned_name
 
 
-class ProjectUpdate(BaseModel):
-    name: str
+class ProjectUpdate(ProjectCreate):
+    pass
 
 
 class ProjectRead(BaseModel):
