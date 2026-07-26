@@ -3,12 +3,13 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import db
 from app.models.enums import ExecutionStatus
 from app.models.execution import Execution
 from app.models.project import Project
 from app.models.workflow import Workflow
 from app.schemas.project import ProjectCreate
-
+from app.services.workflow_runner import run
 
 def create(
     db: Session,
@@ -59,6 +60,13 @@ def create_execution(
 
     db.add(execution)
     db.commit()
+    db.refresh(execution)
+
+    run(
+    db=db,
+    execution=execution,
+)
+
     db.refresh(execution)
 
     return execution

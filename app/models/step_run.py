@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin
-from app.models.enums import ExecutionStatus
+from app.models.enums import StepRunStatus
 
 if TYPE_CHECKING:
     from app.models.execution import Execution
@@ -40,16 +40,16 @@ class StepRun(TimestampMixin, Base):
         index=True,
     )
 
-    status: Mapped[ExecutionStatus] = mapped_column(
+    status: Mapped[StepRunStatus] = mapped_column(
         SQLEnum(
-            ExecutionStatus,
+            StepRunStatus,
             name="step_run_status",
             values_callable=lambda enum_class: [
                 member.value for member in enum_class
             ],
         ),
         nullable=False,
-        default=ExecutionStatus.PENDING,
+        default=StepRunStatus.RUNNING,
     )
 
     input_data: Mapped[dict[str, Any] | None] = mapped_column(
