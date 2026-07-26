@@ -4,7 +4,7 @@ from enum import Enum
 class ExecutionStatus(str, Enum):
     PENDING = "pending"
     RUNNING = "running"
-    COMPLETED = "completed"
+    COMPLETED = "succeeded"
     FAILED = "failed"
 
 class StepRunStatus(str, Enum):

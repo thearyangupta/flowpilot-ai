@@ -10,6 +10,7 @@ from app.models.step_run import StepRun
 def run(
     db: Session,
     execution: Execution,
+    initial_context: dict,
 ) -> Execution:
     ensure_transition(
         current=execution.status,
@@ -22,7 +23,7 @@ def run(
     db.commit()
     db.refresh(execution)
 
-    context: dict = {}
+    context = initial_context.copy()
 
     try:
         for step in execution.workflow.steps:
@@ -74,6 +75,7 @@ def run(
         db.refresh(execution)
 
     except Exception:
+        db.rollback()
         ensure_transition(
             current=execution.status,
             target=ExecutionStatus.FAILED,

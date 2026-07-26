@@ -10,6 +10,7 @@ from app.models.project import Project
 from app.models.workflow import Workflow
 from app.schemas.project import ProjectCreate
 from app.services.workflow_runner import run
+from app.schemas.execution import ExecutionCreate
 
 def create(
     db: Session,
@@ -38,6 +39,7 @@ def create_execution(
     db: Session,
     project_id: UUID,
     workflow_id: UUID,
+    payload: ExecutionCreate,
 ) -> Execution:
     project = db.get(Project, project_id)
 
@@ -65,6 +67,7 @@ def create_execution(
     run(
     db=db,
     execution=execution,
+    initial_context=payload.input_data,
 )
 
     db.refresh(execution)
@@ -107,3 +110,18 @@ def get_executions(
     executions = db.scalars(statement).all()
 
     return list(executions)
+
+
+def get_execution(
+    db: Session,
+    execution_id: UUID,
+) -> Execution:
+    execution = db.get(
+        Execution,
+        execution_id,
+    )
+
+    if execution is None:
+        raise ValueError("Execution not found")
+
+    return execution

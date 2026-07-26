@@ -5,7 +5,7 @@ from app.db.session import get_db
 from app.schemas.project import ProjectCreate, ProjectRead
 from app.services import project_service
 from app.schemas.workflow import WorkflowCreate, WorkflowRead
-from app.schemas.execution import ExecutionRead
+from app.schemas.execution import ExecutionCreate, ExecutionRead, ExecutionDetail
 from app.models.enums import ExecutionStatus
 from app.services import workflow_definition
 from sqlalchemy import text
@@ -67,6 +67,7 @@ def create_workflow(
 def create_execution(
     project_id: UUID,
     workflow_id: UUID,
+    payload: ExecutionCreate,
     db: Session = Depends(get_db),
 ):
     try:
@@ -74,6 +75,7 @@ def create_execution(
             db=db,
             project_id=project_id,
             workflow_id=workflow_id,
+            payload=payload,
         )
     except ValueError as error:
         raise HTTPException(
@@ -97,6 +99,26 @@ def list_executions(
             project_id=project_id,
             workflow_id=workflow_id,
             status=execution_status,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+
+
+@router.get(
+    "/executions/{execution_id}",
+    response_model=ExecutionDetail,
+)
+def get_execution_detail(
+    execution_id: UUID,
+    db: Session = Depends(get_db),
+):
+    try:
+        return project_service.get_execution(
+            db=db,
+            execution_id=execution_id,
         )
     except ValueError as error:
         raise HTTPException(
