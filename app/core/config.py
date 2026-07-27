@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     environment: str = "development"
     database_url: str
     test_database_url: str
+    gemini_api_key: str
+    gemini_model: str = "gemini-3.5-flash"
 
     model_config = SettingsConfigDict(
         env_file=".env",
