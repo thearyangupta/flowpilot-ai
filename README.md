@@ -12,6 +12,7 @@ FlowPilot AI is a backend-first workflow automation platform built with FastAPI 
 - SQLAlchemy
 - Alembic
 - Pydantic
+- Google Gemini
 - Pytest
 - Docker
 
@@ -20,54 +21,99 @@ FlowPilot AI is a backend-first workflow automation platform built with FastAPI 
 ## Features Implemented
 
 ### Project Management
-- Create projects
-- Input validation
+
+- Create and manage projects
 - UUID-based resources
+- Request validation with Pydantic
 
-### Workflow Management
+### Workflow Engine
+
 - Create workflows under projects
-- Nested resource validation
+- Ordered workflow steps
+- Step registry architecture
+- Domain validation for workflow definitions
+- Extensible workflow execution pipeline
 
-### Execution Management
-- Create executions under workflows
-- Execution status enum
-- Default pending state
-- Execution filtering
-- Execution ordering
+### Execution Engine
+
+- Workflow execution state machine
+- Execution tracking
+- Step-level execution records
+- Execution status management
+- Execution filtering and ordering
+
+### AI Decision Engine
+
+- AI-powered email classification
+- Structured outputs using Pydantic schemas
+- Gemini provider integration
+- Prompt engineering for consistent responses
+- Safe fallback policy for invalid AI outputs
+- DecisionService abstraction
+- Tool-calling ready architecture
+
+### Evaluation & Testing
+
+- Labelled evaluation dataset
+- Fake AI provider for deterministic tests
+- Parametrized evaluation suite
+- Evaluation metrics
+- Decision metadata collection
+- Integration testing with Pytest
+- Isolated PostgreSQL test database
 
 ### Backend Engineering
-- API versioning
+
 - Service layer architecture
 - SQLAlchemy ORM models
-- Alembic database migrations
+- Alembic migrations
 - Request ID middleware
 - Structured request logging
 
-### Testing
-- Integration testing with Pytest
-- FastAPI TestClient
-- Isolated PostgreSQL test database
-- Dependency override for testing
-
 ---
+
+## AI Workflow
+
+```text
+Incoming Email
+        │
+        ▼
+Gemini Decision Provider
+        │
+        ▼
+Structured EmailDecision
+        │
+        ▼
+Schema Validation
+        │
+        ▼
+DecisionService
+        │
+        ▼
+Workflow Execution Engine
+```
 
 # Project Structure
 
 ```text
 app/
+├── ai/
 ├── api/
 ├── core/
 ├── db/
+├── domain/
 ├── models/
 ├── schemas/
 ├── services/
 └── main.py
 
 tests/
+├── ai/
 ├── conftest.py
 ├── test_health.py
 ├── test_projects.py
-└── test_workflows.py
+├── test_workflows.py
+└── ...
 ```
 
 ---
@@ -185,7 +231,14 @@ Run the complete test suite:
 python -m pytest -v
 ```
 
-The tests run against the dedicated **flowpilot_test** database and do not modify development data.
+Current repository includes:
+
+- Backend integration tests
+- AI unit tests
+- Evaluation tests
+- Deterministic fake-provider tests
+
+Tests execute against the dedicated **flowpilot_test** database without modifying development data.
 
 ---
 
@@ -213,33 +266,31 @@ GET /api/v1/projects/{project_id}/workflows/{workflow_id}/executions
 
 ---
 
-# Development Progress
+## Current Capabilities
 
-
-- Backend project setup
-- Configuration management
-- Database models
-- SQLAlchemy relationships
-- Alembic migrations
-- Service layer
-- Project APIs
-- Workflow APIs
-- Execution APIs
-- Request logging
-- Request ID middleware
-- Integration testing
-- Isolated test database
+- Production-ready FastAPI backend
+- PostgreSQL persistence with SQLAlchemy
+- Alembic migration management
+- Workflow execution engine
+- State-based execution tracking
+- Extensible step registry
+- AI-powered email decision engine
+- Structured LLM outputs with validation
+- Safe fallback handling
+- Evaluation framework for AI decisions
+- Comprehensive backend and AI test suite
+- Docker-based local development
 
 ---
 
-## Upcoming
+## Roadmap
 
-- Enhanced error handling
-- Background task execution
-- AI workflow engine
-- MCP integration
+- Complete AI workflow execution integration
+- MCP server integration
 - Authentication & authorization
+- Background task execution
 - Production deployment
+- Monitoring & observability
 
 ---
 
