@@ -1,16 +1,20 @@
 from sqlalchemy.orm import Session
 
 from app.domain.execution_state import ensure_transition
-from app.domain.step_registry import get_step_handler
 from app.models.enums import ExecutionStatus, StepRunStatus
 from app.models.execution import Execution
 from app.models.step_run import StepRun
+from app.domain.step_registry import (
+    StepHandler,
+    get_step_handler,
+)
 
 
 def run(
     db: Session,
     execution: Execution,
     initial_context: dict,
+    step_registry: dict[str, StepHandler] | None = None,
 ) -> Execution:
     ensure_transition(
         current=execution.status,
@@ -39,7 +43,7 @@ def run(
             db.refresh(step_run)
 
             try:
-                handler = get_step_handler(step.step_type)
+                handler = get_step_handler(step.step_type,step_registry)
 
                 context = handler(
                     context,
