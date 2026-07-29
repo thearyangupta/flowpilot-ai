@@ -35,3 +35,6 @@ class UnsupportedStepType(FlowPilotError):
         super().__init__(
             f"Unsupported workflow step types: {step_types}."
         )
+
+class RetryableStepError(Exception):
+    """Raised when a workflow step fails temporarily and may be retried."""

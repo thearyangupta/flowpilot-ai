@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.domain.execution_state import ensure_transition
+from app.domain.retry import RetryPolicy, execute_with_retry
 from app.domain.step_registry import (
     StepHandler,
     get_step_handler,
@@ -58,20 +59,6 @@ def run(
             try:
                 step_run.status = StepRunStatus.RUNNING
                 step_run.started_at = datetime.now(timezone.utc)
-                step_run.attempt_count += 1
-
-                create_execution_event(
-                    db=db,
-                    execution_id=execution.id,
-                    event_type="step.started",
-                    details={
-                        "step_id": str(step.id),
-                        "step_run_id": str(step_run.id),
-                        "step_type": step.step_type,
-                        "attempt": step_run.attempt_count,
-                    },
-                    actor="workflow_runner",
-                )
 
                 db.add(step_run)
                 db.commit()
@@ -82,9 +69,34 @@ def run(
                     step_registry,
                 )
 
-                context = handler(
-                    context,
-                    step.config,
+                def run_step_attempt() -> dict:
+                    step_run.attempt_count += 1
+
+                    create_execution_event(
+                        db=db,
+                        execution_id=execution.id,
+                        event_type="step.started",
+                        details={
+                            "step_id": str(step.id),
+                            "step_run_id": str(step_run.id),
+                            "step_type": step.step_type,
+                            "attempt": step_run.attempt_count,
+                        },
+                        actor="workflow_runner",
+                    )
+
+                    db.add(step_run)
+                    db.commit()
+                    db.refresh(step_run)
+
+                    return handler(
+                        context,
+                        step.config,
+                    )
+
+                context = execute_with_retry(
+                    operation=run_step_attempt,
+                    policy=RetryPolicy(),
                 )
 
                 step_run.output_data = context.copy()
