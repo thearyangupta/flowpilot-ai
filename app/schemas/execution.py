@@ -9,6 +9,7 @@ from app.models.enums import ExecutionStatus, StepRunStatus
 
 class ExecutionCreate(BaseModel):
     input_data: dict[str, Any]
+    idempotency_key : str
 
 
 class StepRunRead(BaseModel):

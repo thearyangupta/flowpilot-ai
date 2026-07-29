@@ -1,21 +1,39 @@
-from fastapi import APIRouter, Depends, status , HTTPException
-from sqlalchemy.orm import Session
 from uuid import UUID
-from app.db.session import get_db
-from app.schemas.project import ProjectCreate, ProjectRead
-from app.services import project_service,execution_service
-from app.schemas.workflow import WorkflowCreate, WorkflowRead
-from app.schemas.execution import ExecutionCreate, ExecutionRead, ExecutionDetail,ExecutionEventRead
-from app.models.enums import ExecutionStatus
-from app.services import workflow_definition
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Response,
+    status,
+)
 from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from app.core.exceptions import IdempotencyConflictError
+from app.db.session import get_db
+from app.models.enums import ExecutionStatus
+from app.schemas.execution import (
+    ExecutionCreate,
+    ExecutionDetail,
+    ExecutionEventRead,
+    ExecutionRead,
+)
+from app.schemas.project import ProjectCreate, ProjectRead
+from app.schemas.workflow import WorkflowCreate, WorkflowRead
+from app.services import (
+    execution_service,
+    project_service,
+    workflow_definition,
+)
+
 
 router = APIRouter()
 
 
 @router.get("/db-check", tags=["system"])
 def database_check(
-    db: Session = Depends(get_db),#depends - This endpoint needs something before it can run.Before running this endpoint, call get_db() and use the yielded value as db
+    db: Session = Depends(get_db),
 ) -> dict[str, str]:
     db.execute(text("SELECT 1"))
 
@@ -23,6 +41,7 @@ def database_check(
         "status": "ok",
         "database": "connected",
     }
+
 
 @router.post(
     "/projects",
@@ -33,7 +52,10 @@ def create_project(
     payload: ProjectCreate,
     db: Session = Depends(get_db),
 ):
-    return project_service.create(db, payload)
+    return project_service.create(
+        db=db,
+        payload=payload,
+    )
 
 
 @router.post(
@@ -57,7 +79,7 @@ def create_workflow(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(error),
         ) from error
-    
+
 
 @router.post(
     "/projects/{project_id}/workflows/{workflow_id}/executions",
@@ -68,21 +90,35 @@ def create_execution(
     project_id: UUID,
     workflow_id: UUID,
     payload: ExecutionCreate,
+    response: Response,
     db: Session = Depends(get_db),
 ):
     try:
-        return project_service.create_execution(
+        execution, created = project_service.create_execution(
             db=db,
             project_id=project_id,
             workflow_id=workflow_id,
             payload=payload,
         )
+
+        if not created:
+            response.status_code = status.HTTP_200_OK
+
+        return execution
+
+    except IdempotencyConflictError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(error),
+        ) from error
+
     except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(error),
         ) from error
-    
+
+
 @router.get(
     "/projects/{project_id}/workflows/{workflow_id}/executions",
     response_model=list[ExecutionRead],

@@ -3,14 +3,15 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import db
 from app.models.enums import ExecutionStatus
 from app.models.execution import Execution
 from app.models.project import Project
 from app.models.workflow import Workflow
-from app.schemas.project import ProjectCreate
-from app.services.workflow_runner import run
 from app.schemas.execution import ExecutionCreate
+from app.schemas.project import ProjectCreate
+from app.services.execution_service import create_or_return_existing
+from app.services.workflow_runner import run
+
 
 def create(
     db: Session,
@@ -40,7 +41,7 @@ def create_execution(
     project_id: UUID,
     workflow_id: UUID,
     payload: ExecutionCreate,
-) -> Execution:
+) -> tuple[Execution, bool]:
     project = db.get(Project, project_id)
 
     if project is None:
@@ -56,23 +57,23 @@ def create_execution(
             "Workflow does not belong to this project"
         )
 
-    execution = Execution(
+    execution, created = create_or_return_existing(
+        db=db,
         workflow_id=workflow.id,
+        idempotency_key=payload.idempotency_key,
+        initial_context=payload.input_data,
     )
 
-    db.add(execution)
-    db.commit()
-    db.refresh(execution)
+    if created:
+        run(
+            db=db,
+            execution=execution,
+            initial_context=payload.input_data,
+        )
 
-    run(
-    db=db,
-    execution=execution,
-    initial_context=payload.input_data,
-)
+        db.refresh(execution)
 
-    db.refresh(execution)
-
-    return execution
+    return execution, created
 
 
 def get_executions(
