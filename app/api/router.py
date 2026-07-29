@@ -3,9 +3,9 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 from app.db.session import get_db
 from app.schemas.project import ProjectCreate, ProjectRead
-from app.services import project_service
+from app.services import project_service,execution_service
 from app.schemas.workflow import WorkflowCreate, WorkflowRead
-from app.schemas.execution import ExecutionCreate, ExecutionRead, ExecutionDetail
+from app.schemas.execution import ExecutionCreate, ExecutionRead, ExecutionDetail,ExecutionEventRead
 from app.models.enums import ExecutionStatus
 from app.services import workflow_definition
 from sqlalchemy import text
@@ -117,6 +117,26 @@ def get_execution_detail(
 ):
     try:
         return project_service.get_execution(
+            db=db,
+            execution_id=execution_id,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+
+
+@router.get(
+    "/executions/{execution_id}/events",
+    response_model=list[ExecutionEventRead],
+)
+def get_execution_events(
+    execution_id: UUID,
+    db: Session = Depends(get_db),
+):
+    try:
+        return execution_service.get_execution_events(
             db=db,
             execution_id=execution_id,
         )

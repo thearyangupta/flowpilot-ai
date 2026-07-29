@@ -10,6 +10,7 @@ from app.domain.step_registry import (
 from app.models.enums import ExecutionStatus, StepRunStatus
 from app.models.execution import Execution
 from app.models.step_run import StepRun
+from app.services.execution_event_service import create_execution_event
 
 
 def run(
@@ -24,6 +25,16 @@ def run(
     )
 
     execution.status = ExecutionStatus.RUNNING
+
+    create_execution_event(
+        db=db,
+        execution_id=execution.id,
+        event_type="execution.started",
+        details={
+            "workflow_id": str(execution.workflow_id),
+        },
+        actor="workflow_runner",
+    )
 
     db.add(execution)
     db.commit()
@@ -49,6 +60,19 @@ def run(
                 step_run.started_at = datetime.now(timezone.utc)
                 step_run.attempt_count += 1
 
+                create_execution_event(
+                    db=db,
+                    execution_id=execution.id,
+                    event_type="step.started",
+                    details={
+                        "step_id": str(step.id),
+                        "step_run_id": str(step_run.id),
+                        "step_type": step.step_type,
+                        "attempt": step_run.attempt_count,
+                    },
+                    actor="workflow_runner",
+                )
+
                 db.add(step_run)
                 db.commit()
                 db.refresh(step_run)
@@ -67,6 +91,19 @@ def run(
                 step_run.status = StepRunStatus.COMPLETED
                 step_run.finished_at = datetime.now(timezone.utc)
 
+                create_execution_event(
+                    db=db,
+                    execution_id=execution.id,
+                    event_type="step.completed",
+                    details={
+                        "step_id": str(step.id),
+                        "step_run_id": str(step_run.id),
+                        "step_type": step.step_type,
+                        "attempt": step_run.attempt_count,
+                    },
+                    actor="workflow_runner",
+                )
+
                 db.add(step_run)
                 db.commit()
                 db.refresh(step_run)
@@ -76,6 +113,21 @@ def run(
                 step_run.finished_at = datetime.now(timezone.utc)
                 step_run.error_type = type(exc).__name__
                 step_run.error_message = str(exc)
+
+                create_execution_event(
+                    db=db,
+                    execution_id=execution.id,
+                    event_type="step.failed",
+                    details={
+                        "step_id": str(step.id),
+                        "step_run_id": str(step_run.id),
+                        "step_type": step.step_type,
+                        "attempt": step_run.attempt_count,
+                        "error_type": type(exc).__name__,
+                        "error_message": str(exc),
+                    },
+                    actor="workflow_runner",
+                )
 
                 db.add(step_run)
                 db.commit()
@@ -90,11 +142,21 @@ def run(
 
         execution.status = ExecutionStatus.COMPLETED
 
+        create_execution_event(
+            db=db,
+            execution_id=execution.id,
+            event_type="execution.completed",
+            details={
+                "workflow_id": str(execution.workflow_id),
+            },
+            actor="workflow_runner",
+        )
+
         db.add(execution)
         db.commit()
         db.refresh(execution)
 
-    except Exception:
+    except Exception as exc:
         db.rollback()
 
         ensure_transition(
@@ -103,6 +165,18 @@ def run(
         )
 
         execution.status = ExecutionStatus.FAILED
+
+        create_execution_event(
+            db=db,
+            execution_id=execution.id,
+            event_type="execution.failed",
+            details={
+                "workflow_id": str(execution.workflow_id),
+                "error_type": type(exc).__name__,
+                "error_message": str(exc),
+            },
+            actor="workflow_runner",
+        )
 
         db.add(execution)
         db.commit()

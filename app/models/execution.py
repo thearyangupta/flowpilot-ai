@@ -11,6 +11,7 @@ from app.models.enums import ExecutionStatus
 if TYPE_CHECKING:
     from app.models.workflow import Workflow
     from app.models.step_run import StepRun
+    from app.models.execution_event import ExecutionEvent
 
 class Execution(TimestampMixin, Base):
     __tablename__ = "executions"
@@ -45,6 +46,12 @@ class Execution(TimestampMixin, Base):
         back_populates="executions",
     )
     step_runs: Mapped[list["StepRun"]] = relationship(
+    back_populates="execution",
+    cascade="all, delete-orphan",
+    passive_deletes=True,
+    )
+
+    events: Mapped[list["ExecutionEvent"]] = relationship(
     back_populates="execution",
     cascade="all, delete-orphan",
     passive_deletes=True,

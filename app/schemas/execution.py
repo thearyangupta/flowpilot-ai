@@ -61,3 +61,20 @@ class ExecutionDetail(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+class ExecutionEventRead(BaseModel):
+    id: UUID
+    execution_id: UUID
+
+    event_type: str
+
+    details: dict[str, Any]
+
+    actor: str | None
+    correlation_id: str | None
+
+    created_at: datetime
+
+    model_config = {
+        "from_attributes": True
+    }

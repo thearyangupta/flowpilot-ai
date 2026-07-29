@@ -3,6 +3,7 @@ from app.models.project import Project
 from app.models.step_run import StepRun
 from app.models.workflow import Workflow
 from app.models.workflow_step import WorkflowStep
+from app.models.execution_event import ExecutionEvent
 
 __all__ = [
     "Execution",
@@ -10,4 +11,5 @@ __all__ = [
     "StepRun",
     "Workflow",
     "WorkflowStep",
+    "ExecutionEvent"
 ]
