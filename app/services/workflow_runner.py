@@ -1,13 +1,15 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
 from app.domain.execution_state import ensure_transition
-from app.models.enums import ExecutionStatus, StepRunStatus
-from app.models.execution import Execution
-from app.models.step_run import StepRun
 from app.domain.step_registry import (
     StepHandler,
     get_step_handler,
 )
+from app.models.enums import ExecutionStatus, StepRunStatus
+from app.models.execution import Execution
+from app.models.step_run import StepRun
 
 
 def run(
@@ -34,7 +36,7 @@ def run(
             step_run = StepRun(
                 execution_id=execution.id,
                 workflow_step_id=step.id,
-                status=StepRunStatus.RUNNING,
+                status=StepRunStatus.PENDING,
                 input_data=context.copy(),
             )
 
@@ -43,7 +45,18 @@ def run(
             db.refresh(step_run)
 
             try:
-                handler = get_step_handler(step.step_type,step_registry)
+                step_run.status = StepRunStatus.RUNNING
+                step_run.started_at = datetime.now(timezone.utc)
+                step_run.attempt_count += 1
+
+                db.add(step_run)
+                db.commit()
+                db.refresh(step_run)
+
+                handler = get_step_handler(
+                    step.step_type,
+                    step_registry,
+                )
 
                 context = handler(
                     context,
@@ -52,6 +65,7 @@ def run(
 
                 step_run.output_data = context.copy()
                 step_run.status = StepRunStatus.COMPLETED
+                step_run.finished_at = datetime.now(timezone.utc)
 
                 db.add(step_run)
                 db.commit()
@@ -59,7 +73,9 @@ def run(
 
             except Exception as exc:
                 step_run.status = StepRunStatus.FAILED
-                step_run.error = str(exc)
+                step_run.finished_at = datetime.now(timezone.utc)
+                step_run.error_type = type(exc).__name__
+                step_run.error_message = str(exc)
 
                 db.add(step_run)
                 db.commit()
@@ -80,6 +96,7 @@ def run(
 
     except Exception:
         db.rollback()
+
         ensure_transition(
             current=execution.status,
             target=ExecutionStatus.FAILED,

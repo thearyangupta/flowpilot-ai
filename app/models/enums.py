@@ -8,6 +8,8 @@ class ExecutionStatus(str, Enum):
     FAILED = "failed"
 
 class StepRunStatus(str, Enum):
+    PENDING = "pending"
     RUNNING = "running"
+    RETRY_WAIT = "retry_wait"
     COMPLETED = "completed"
     FAILED = "failed"

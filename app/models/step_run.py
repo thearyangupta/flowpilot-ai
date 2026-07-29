@@ -1,10 +1,10 @@
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import Enum as SQLEnum, ForeignKey, Text
+from sqlalchemy import Enum as SQLEnum, ForeignKey, Text,String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
+from sqlalchemy import DateTime
 from app.db.base import Base
 from app.db.mixins import TimestampMixin
 from app.models.enums import StepRunStatus
@@ -49,7 +49,7 @@ class StepRun(TimestampMixin, Base):
             ],
         ),
         nullable=False,
-        default=StepRunStatus.RUNNING,
+        default=StepRunStatus.PENDING,
     )
 
     input_data: Mapped[dict[str, Any] | None] = mapped_column(
@@ -62,15 +62,36 @@ class StepRun(TimestampMixin, Base):
         nullable=True,
     )
 
-    error: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True,
-    )
-
     execution: Mapped["Execution"] = relationship(
         back_populates="step_runs",
     )
 
     workflow_step: Mapped["WorkflowStep"] = relationship(
         back_populates="step_runs",
+    )
+
+    started_at: Mapped[DateTime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
+    finished_at: Mapped[DateTime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    attempt_count: Mapped[int] = mapped_column(
+        nullable=False,
+        default=0,
+    )
+
+    error_type: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    error_message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
     )
