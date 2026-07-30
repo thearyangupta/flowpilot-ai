@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     database_url: str
     test_database_url: str
     gemini_api_key: str
+    redis_broker_url: str = "redis://localhost:6379/0"
+    redis_result_url: str = "redis://localhost:6379/1"
     gemini_model: str = "gemini-3.5-flash"
 
     model_config = SettingsConfigDict(
