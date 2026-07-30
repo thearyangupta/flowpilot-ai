@@ -1,7 +1,8 @@
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import Enum as SQLEnum, ForeignKey,String,UniqueConstraint
+from sqlalchemy import Enum as SQLEnum, ForeignKey, String, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -73,4 +74,10 @@ class Execution(TimestampMixin, Base):
     input_hash: Mapped[str] = mapped_column(
         String(64),
         nullable=False,
+)
+
+    input_data: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
 )

@@ -49,6 +49,7 @@ def create_or_return_existing(
     execution = Execution(
         workflow_id=workflow_id,
         idempotency_key=idempotency_key,
+        input_data = initial_context.copy(),
         input_hash=input_hash,
     )
 
