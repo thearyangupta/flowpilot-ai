@@ -37,8 +37,13 @@ FlowPilot AI is a backend-first workflow automation platform built with FastAPI 
 ### Execution Engine
 
 - Workflow execution state machine
-- Execution tracking
-- Step-level execution records
+- Step-level execution tracking
+- Execution event timeline
+- Retry mechanism with exponential backoff
+- Idempotent execution requests
+- Checkpoint-based workflow recovery
+- Heartbeat monitoring for long-running executions
+- Crash recovery and resume support
 - Execution status management
 - Execution filtering and ordering
 
@@ -60,7 +65,12 @@ FlowPilot AI is a backend-first workflow automation platform built with FastAPI 
 - Evaluation metrics
 - Decision metadata collection
 - Integration testing with Pytest
+- Reliability testing for retry behavior
+- Idempotency validation tests
+- Crash-and-resume recovery tests
+- Execution event timeline verification
 - Isolated PostgreSQL test database
+
 
 ### Backend Engineering
 
@@ -72,9 +82,32 @@ FlowPilot AI is a backend-first workflow automation platform built with FastAPI 
 
 ---
 
-## AI Workflow
+## Architecture Overview
 
 ```text
+Client Request
+       │
+       ▼
+FastAPI API Layer
+       │
+       ▼
+Service Layer
+       │
+       ▼
+Workflow Execution Engine
+       │
+       ├── Step Registry
+       ├── Retry Engine
+       ├── Checkpoint Recovery
+       ├── Execution Events
+       └── AI Decision Service
+       │
+       ▼
+PostgreSQL
+```
+
+## AI Workflow
+
 Incoming Email
         │
         ▼
@@ -91,7 +124,15 @@ DecisionService
         │
         ▼
 Workflow Execution Engine
-```
+        │
+        ▼
+Step Execution
+        │
+        ▼
+Retry & Recovery
+        │
+        ▼
+Execution Event Timeline
 
 # Project Structure
 
@@ -272,13 +313,18 @@ GET /api/v1/projects/{project_id}/workflows/{workflow_id}/executions
 - PostgreSQL persistence with SQLAlchemy
 - Alembic migration management
 - Workflow execution engine
-- State-based execution tracking
+- Stateful workflow execution tracking
 - Extensible step registry
 - AI-powered email decision engine
 - Structured LLM outputs with validation
 - Safe fallback handling
+- Retry mechanism with exponential backoff
+- Idempotent execution requests
+- Checkpoint-based execution recovery
+- Heartbeat monitoring
+- Execution event timeline
+- Reliability and recovery test suite
 - Evaluation framework for AI decisions
-- Comprehensive backend and AI test suite
 - Docker-based local development
 
 ---

@@ -10,6 +10,10 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 
+from app.models.project import Project
+from app.models.workflow import Workflow
+from app.models.workflow_step import WorkflowStep
+
 
 settings = get_settings()
 
@@ -57,3 +61,45 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
         yield test_client
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def workflow(db_session: Session) -> Workflow:
+    project = Project(
+        name="Test Project",
+    )
+
+    db_session.add(project)
+    db_session.flush()
+
+    workflow = Workflow(
+        project_id=project.id,
+        name="Test Workflow",
+    )
+
+    db_session.add(workflow)
+    db_session.commit()
+    db_session.refresh(workflow)
+
+
+    step1 = WorkflowStep(
+    workflow_id=workflow.id,
+    position=1,
+    step_type="step1",
+    config={"output_key": "step1"},
+)
+
+    step2 = WorkflowStep(
+    workflow_id=workflow.id,
+    position=2,
+    step_type="step2",
+    config={"output_key": "step2"},
+)
+
+    db_session.add_all([step1, step2])
+    db_session.commit()
+    db_session.refresh(workflow)
+
+    return workflow
+
+    
