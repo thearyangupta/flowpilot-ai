@@ -36,6 +36,7 @@ def run(
     )
 
     execution.status = ExecutionStatus.RUNNING
+    execution.heartbeat_at = datetime.now(timezone.utc)
 
     create_execution_event(
         db=db,
@@ -55,6 +56,12 @@ def run(
 
     try:
         for step in execution.workflow.steps:
+            execution.heartbeat_at = datetime.now(timezone.utc)
+
+            db.add(execution)
+            db.commit()
+            db.refresh(execution)
+
             step_run = StepRun(
                 execution_id=execution.id,
                 workflow_step_id=step.id,
@@ -260,6 +267,7 @@ def resume(
     remaining_steps = workflow_steps[resume_index:]
 
     execution.status = ExecutionStatus.RUNNING
+    execution.heartbeat_at = datetime.now(timezone.utc)
 
     create_execution_event(
         db=db,
@@ -279,6 +287,12 @@ def resume(
 
     try:
         for step in remaining_steps:
+            execution.heartbeat_at = datetime.now(timezone.utc)
+
+            db.add(execution)
+            db.commit()
+            db.refresh(execution)
+            
             step_run = StepRun(
                 execution_id=execution.id,
                 workflow_step_id=step.id,

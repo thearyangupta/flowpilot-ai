@@ -10,7 +10,7 @@ from fastapi import (
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import IdempotencyConflictError
+from app.core.exceptions import IdempotencyConflictError,ExecutionNotFoundError,ExecutionStillActiveError,RecoveryNotAllowedError
 from app.db.session import get_db
 from app.models.enums import ExecutionStatus
 from app.schemas.execution import (
@@ -26,7 +26,10 @@ from app.services import (
     project_service,
     workflow_definition,
 )
-
+from app.services.execution_recovery_service import (
+    require_recoverable_execution,
+)
+from app.services import workflow_runner
 
 router = APIRouter()
 
@@ -181,3 +184,35 @@ def get_execution_events(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(error),
         ) from error
+
+
+@router.post("/executions/{execution_id}/resume")
+def resume_execution(
+    execution_id: UUID,
+    db: Session = Depends(get_db),
+):
+    try:
+        execution = require_recoverable_execution(
+            db=db,
+            execution_id=execution_id,
+        )
+
+        return workflow_runner.resume(
+            db=db,
+            execution=execution,
+        )
+
+    except ExecutionNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        )
+
+    except (
+        ExecutionStillActiveError,
+        RecoveryNotAllowedError,
+    ) as exc:
+        raise HTTPException(
+            status_code=409,
+            detail=str(exc),
+        )

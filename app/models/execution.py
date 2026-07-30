@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import Enum as SQLEnum, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import DateTime
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin
@@ -80,4 +81,8 @@ class Execution(TimestampMixin, Base):
         JSONB,
         nullable=False,
         default=dict,
+)
+    heartbeat_at: Mapped[DateTime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
 )

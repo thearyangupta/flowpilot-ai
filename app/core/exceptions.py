@@ -1,4 +1,5 @@
 from typing import Any
+from uuid import UUID
 
 
 class FlowPilotError(Exception):
@@ -43,3 +44,22 @@ class RetryableStepError(Exception):
 
 class IdempotencyConflictError(Exception):
     """Raised when an idempotency key is reused with a different payload."""
+
+
+
+class ExecutionNotFoundError(Exception):
+    def __init__(self, execution_id: UUID) -> None:
+        super().__init__(
+            f"Execution '{execution_id}' was not found."
+        )
+
+
+class ExecutionStillActiveError(Exception):
+    def __init__(self, execution_id: UUID) -> None:
+        super().__init__(
+            f"Execution '{execution_id}' is still active."
+        )
+
+
+class RecoveryNotAllowedError(Exception):
+    pass
