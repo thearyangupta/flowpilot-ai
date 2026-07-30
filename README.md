@@ -108,6 +108,7 @@ PostgreSQL
 
 ## AI Workflow
 
+```text
 Incoming Email
         │
         ▼
@@ -133,6 +134,7 @@ Retry & Recovery
         │
         ▼
 Execution Event Timeline
+```
 
 # Project Structure
 
