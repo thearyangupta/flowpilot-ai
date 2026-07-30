@@ -44,16 +44,18 @@ def test_create_execution_runs_workflow_successfully(
     db_session.refresh(step)
 
     # Act
-    execution = create_execution(
+    execution,created = create_execution(
         db=db_session,
         project_id=project.id,
         workflow_id=workflow.id,
         payload=ExecutionCreate(
+            idempotency_key="test-execution-001",
             input_data={},
         ),
     )
 
     # Assert
+    assert created is True
     assert execution.status == ExecutionStatus.COMPLETED
     assert execution.workflow_id == workflow.id
 
