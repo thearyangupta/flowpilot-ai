@@ -1,17 +1,15 @@
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.enums import ExecutionStatus, StepRunStatus
+from app.models.enums import ExecutionStatus
 from app.models.execution import Execution
 from app.models.project import Project
-from app.models.step_run import StepRun
 from app.models.workflow import Workflow
 from app.models.workflow_step import WorkflowStep
 from app.schemas.execution import ExecutionCreate
 from app.services.project_service import create_execution
 
 
-def test_create_execution_runs_workflow_successfully(
+def test_create_execution_queues_workflow_successfully(
     db_session: Session,
 ) -> None:
     # Arrange
@@ -44,7 +42,7 @@ def test_create_execution_runs_workflow_successfully(
     db_session.refresh(step)
 
     # Act
-    execution,created = create_execution(
+    execution, created = create_execution(
         db=db_session,
         project_id=project.id,
         workflow_id=workflow.id,
@@ -56,8 +54,10 @@ def test_create_execution_runs_workflow_successfully(
 
     # Assert
     assert created is True
-    assert execution.status == ExecutionStatus.COMPLETED
+    assert execution.status == ExecutionStatus.QUEUED
     assert execution.workflow_id == workflow.id
+    assert execution.idempotency_key == "test-execution-001"
+    assert execution.input_data == {}
 
     saved_execution = db_session.get(
         Execution,
@@ -65,20 +65,7 @@ def test_create_execution_runs_workflow_successfully(
     )
 
     assert saved_execution is not None
-    assert saved_execution.status == ExecutionStatus.COMPLETED
-
-    step_runs = db_session.scalars(
-        select(StepRun).where(
-            StepRun.execution_id == execution.id
-        )
-    ).all()
-
-    assert len(step_runs) == 1
-
-    step_run = step_runs[0]
-
-    assert step_run.status == StepRunStatus.COMPLETED
-    assert step_run.input_data == {}
-    assert step_run.output_data == {
-        "message": "Hello",
-    }
+    assert saved_execution.status == ExecutionStatus.QUEUED
+    assert saved_execution.workflow_id == workflow.id
+    assert saved_execution.idempotency_key == "test-execution-001"
+    assert saved_execution.input_data == {}

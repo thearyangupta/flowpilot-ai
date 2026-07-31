@@ -12,6 +12,10 @@ from app.models.enums import ExecutionStatus
     [
         (
             ExecutionStatus.PENDING,
+            ExecutionStatus.QUEUED,
+        ),
+        (
+            ExecutionStatus.QUEUED,
             ExecutionStatus.RUNNING,
         ),
         (

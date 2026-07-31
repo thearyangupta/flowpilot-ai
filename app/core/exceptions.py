@@ -63,3 +63,7 @@ class ExecutionStillActiveError(Exception):
 
 class RecoveryNotAllowedError(Exception):
     pass
+
+
+class RetryableExecutionError(Exception):
+    """Infrastructure failure that should retry the entire execution."""
