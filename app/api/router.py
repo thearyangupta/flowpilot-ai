@@ -10,7 +10,12 @@ from fastapi import (
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import IdempotencyConflictError,ExecutionNotFoundError,ExecutionStillActiveError,RecoveryNotAllowedError
+from app.core.exceptions import (
+    ExecutionNotFoundError,
+    ExecutionStillActiveError,
+    IdempotencyConflictError,
+    RecoveryNotAllowedError,
+)
 from app.db.session import get_db
 from app.models.enums import ExecutionStatus
 from app.schemas.execution import (
@@ -25,11 +30,15 @@ from app.services import (
     execution_service,
     project_service,
     workflow_definition,
+    workflow_runner,
+)
+from app.services.execution_event_service import (
+    create_execution_event,
 )
 from app.services.execution_recovery_service import (
     require_recoverable_execution,
 )
-from app.services import workflow_runner
+from app.worker.tasks import run_execution_task
 
 router = APIRouter()
 
@@ -77,6 +86,7 @@ def create_workflow(
             project_id=project_id,
             payload=payload,
         )
+
     except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -87,7 +97,7 @@ def create_workflow(
 @router.post(
     "/projects/{project_id}/workflows/{workflow_id}/executions",
     response_model=ExecutionRead,
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_202_ACCEPTED,
 )
 def create_execution(
     project_id: UUID,
@@ -106,6 +116,36 @@ def create_execution(
 
         if not created:
             response.status_code = status.HTTP_200_OK
+            return execution
+
+        try:
+            run_execution_task.delay(
+                str(execution.id)
+            )
+
+        except Exception as error:
+            create_execution_event(
+                db=db,
+                execution_id=execution.id,
+                event_type="execution.publish_failed",
+                details={
+                    "error_type": type(error).__name__,
+                    "error_message": str(error),
+                },
+                actor="api",
+            )
+
+            db.commit()
+
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_503_SERVICE_UNAVAILABLE
+                ),
+                detail=(
+                    "Execution was created, but it could "
+                    "not be published to the worker queue"
+                ),
+            ) from error
 
         return execution
 
@@ -139,6 +179,7 @@ def list_executions(
             workflow_id=workflow_id,
             status=execution_status,
         )
+
     except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -159,6 +200,7 @@ def get_execution_detail(
             db=db,
             execution_id=execution_id,
         )
+
     except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -179,6 +221,7 @@ def get_execution_events(
             db=db,
             execution_id=execution_id,
         )
+
     except ValueError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -202,17 +245,17 @@ def resume_execution(
             execution=execution,
         )
 
-    except ExecutionNotFoundError as exc:
+    except ExecutionNotFoundError as error:
         raise HTTPException(
-            status_code=404,
-            detail=str(exc),
-        )
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
 
     except (
         ExecutionStillActiveError,
         RecoveryNotAllowedError,
-    ) as exc:
+    ) as error:
         raise HTTPException(
-            status_code=409,
-            detail=str(exc),
-        )
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(error),
+        ) from error

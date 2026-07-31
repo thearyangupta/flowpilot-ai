@@ -1,6 +1,6 @@
 from app.worker.celery_app import celery_app
 
 
-@celery_app.task(name="flowpilot.debug")
-def debug_task() -> str:
-    return "worker is running"
+@celery_app.task(name="flowpilot.run_execution")
+def run_execution_task(execution_id: str) -> None:
+    pass

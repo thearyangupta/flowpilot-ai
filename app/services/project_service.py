@@ -10,7 +10,6 @@ from app.models.workflow import Workflow
 from app.schemas.execution import ExecutionCreate
 from app.schemas.project import ProjectCreate
 from app.services.execution_service import create_or_return_existing
-from app.services.workflow_runner import run
 
 
 def create(
@@ -63,16 +62,7 @@ def create_execution(
         idempotency_key=payload.idempotency_key,
         initial_context=payload.input_data,
     )
-
-    if created:
-        run(
-            db=db,
-            execution=execution,
-            initial_context=payload.input_data,
-        )
-
-        db.refresh(execution)
-
+    
     return execution, created
 
 

@@ -3,6 +3,7 @@ from enum import Enum
 
 class ExecutionStatus(str, Enum):
     PENDING = "pending"
+    QUEUED = "queued"
     RUNNING = "running"
     COMPLETED = "succeeded"
     FAILED = "failed"

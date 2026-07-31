@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.exceptions import IdempotencyConflictError
 from app.models.execution import Execution
 from app.models.execution_event import ExecutionEvent
+from app.models.enums import ExecutionStatus
 
 
 def _generate_input_hash(input_data: dict[str, Any]) -> str:
@@ -49,8 +50,9 @@ def create_or_return_existing(
     execution = Execution(
         workflow_id=workflow_id,
         idempotency_key=idempotency_key,
-        input_data = initial_context.copy(),
+        input_data=initial_context.copy(),
         input_hash=input_hash,
+        status=ExecutionStatus.QUEUED,
     )
 
     db.add(execution)
