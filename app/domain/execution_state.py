@@ -20,6 +20,9 @@ class InvalidTransition(Exception):
 
 ALLOWED_TRANSITIONS = {
     ExecutionStatus.PENDING: {
+        ExecutionStatus.QUEUED,
+    },
+    ExecutionStatus.QUEUED: {
         ExecutionStatus.RUNNING,
     },
     ExecutionStatus.RUNNING: {
