@@ -1,9 +1,9 @@
 from uuid import UUID
-
+from app.models.enums import ExecutionStatus
 from app.db.session import SessionLocal
 from app.models.execution import Execution
 from app.services.execution_event_service import create_execution_event
-from app.services.workflow_runner import run
+from app.services.workflow_runner import run,resume
 from app.worker.celery_app import celery_app
 from app.core.exceptions import RetryableExecutionError
 
@@ -45,11 +45,18 @@ def run_execution_task(
 
         db.commit()
 
-        run(
-            db=db,
-            execution=execution,
-            initial_context=dict(execution.input_data or {}),
-        )
+        if execution.status == ExecutionStatus.QUEUED:
+            run(
+                db=db,
+                execution=execution,
+                initial_context=dict(execution.input_data or {}),
+            )
+        else:
+            resume(
+                db=db,
+                execution=execution,
+            )
+
     except RetryableExecutionError as exc:
 
         db.rollback()
