@@ -20,5 +20,8 @@ __pycache__/
 Thumbs.db
 practice.py
 
-# Celery Beat schedule files
-celerybeat-schedule*
+# Celery beat schedule files
+celerybeat-schedule.bak
+celerybeat-schedule.dat
+celerybeat-schedule.dir
+
