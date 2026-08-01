@@ -1,6 +1,6 @@
 # FlowPilot AI
 
-FlowPilot AI is a backend-first workflow automation platform built with FastAPI and PostgreSQL. The project focuses on building production-grade backend systems step by step, covering API design, database architecture, testing, observability, and AI integrations.
+FlowPilot AI is a production-oriented workflow automation platform built with **FastAPI, PostgreSQL, Redis, Celery, and Google Gemini**. It focuses on reliable asynchronous workflow execution, AI-powered decision making, fault tolerance, and production backend engineering practices.
 
 ---
 
@@ -11,132 +11,77 @@ FlowPilot AI is a backend-first workflow automation platform built with FastAPI 
 - PostgreSQL
 - SQLAlchemy
 - Alembic
-- Pydantic
+- Redis
+- Celery
 - Google Gemini
-- Pytest
+- Pydantic
 - Docker
+- Pytest
 
 ---
 
-## Features Implemented
+## Features
 
-### Project Management
-
-- Create and manage projects
-- UUID-based resources
-- Request validation with Pydantic
-
-### Workflow Engine
-
-- Create workflows under projects
-- Ordered workflow steps
+- Project and workflow management
+- Stateful workflow execution engine
+- Redis + Celery asynchronous execution
+- Execution state machine
 - Step registry architecture
-- Domain validation for workflow definitions
-- Extensible workflow execution pipeline
-
-### Execution Engine
-
-- Workflow execution state machine
-- Step-level execution tracking
-- Execution event timeline
+- AI-powered email classification
+- Structured LLM outputs with Pydantic
 - Retry mechanism with exponential backoff
 - Idempotent execution requests
 - Checkpoint-based workflow recovery
-- Heartbeat monitoring for long-running executions
-- Crash recovery and resume support
-- Execution status management
-- Execution filtering and ordering
-
-### AI Decision Engine
-
-- AI-powered email classification
-- Structured outputs using Pydantic schemas
-- Gemini provider integration
-- Prompt engineering for consistent responses
-- Safe fallback policy for invalid AI outputs
-- DecisionService abstraction
-- Tool-calling ready architecture
-
-### Evaluation & Testing
-
-- Labelled evaluation dataset
-- Fake AI provider for deterministic tests
-- Parametrized evaluation suite
-- Evaluation metrics
-- Decision metadata collection
-- Integration testing with Pytest
-- Reliability testing for retry behavior
-- Idempotency validation tests
-- Crash-and-resume recovery tests
-- Execution event timeline verification
-- Isolated PostgreSQL test database
-
-
-### Backend Engineering
-
-- Service layer architecture
-- SQLAlchemy ORM models
-- Alembic migrations
-- Request ID middleware
-- Structured request logging
+- Heartbeat monitoring
+- Automatic stale execution recovery
+- Execution event timeline
+- Background maintenance jobs with Celery Beat
+- Dedicated PostgreSQL test database
 
 ---
 
-## Architecture Overview
+## Architecture
 
 ```text
-Client Request
-       │
-       ▼
-FastAPI API Layer
-       │
-       ▼
-Service Layer
-       │
-       ▼
-Workflow Execution Engine
-       │
-       ├── Step Registry
-       ├── Retry Engine
-       ├── Checkpoint Recovery
-       ├── Execution Events
-       └── AI Decision Service
-       │
-       ▼
-PostgreSQL
+                Client
+                   │
+                   ▼
+             FastAPI API
+                   │
+                   ▼
+            Service Layer
+                   │
+          Create Execution
+                   │
+                   ▼
+             PostgreSQL
+                   │
+                   ▼
+          Redis Message Broker
+          ┌──────────┴──────────┐
+          ▼                     ▼
+ Workflow Queue          Maintenance Queue
+          ▼                     ▼
+ Celery Worker         Celery Worker
+          │                     │
+          └──────────┬──────────┘
+                     ▼
+            Workflow Runner
+                     │
+      ┌──────────────┼──────────────┐
+      ▼              ▼              ▼
+ Step Registry   Retry Engine   Checkpoints
+                     │
+                     ▼
+             Execution Events
+                     │
+                     ▼
+               PostgreSQL
 ```
 
-## AI Workflow
+---
 
-```text
-Incoming Email
-        │
-        ▼
-Gemini Decision Provider
-        │
-        ▼
-Structured EmailDecision
-        │
-        ▼
-Schema Validation
-        │
-        ▼
-DecisionService
-        │
-        ▼
-Workflow Execution Engine
-        │
-        ▼
-Step Execution
-        │
-        ▼
-Retry & Recovery
-        │
-        ▼
-Execution Event Timeline
-```
-
-# Project Structure
+## Project Structure
 
 ```text
 app/
@@ -148,12 +93,13 @@ app/
 ├── models/
 ├── schemas/
 ├── services/
+├── worker/
 └── main.py
 
 tests/
 ├── ai/
 ├── conftest.py
-├── test_health.py
+├── test_execution_service.py
 ├── test_projects.py
 ├── test_workflows.py
 └── ...
@@ -161,131 +107,56 @@ tests/
 
 ---
 
-# Local Setup
+## Quick Start
 
-## 1. Clone the repository
+### Clone
 
 ```bash
 git clone https://github.com/thearyangupta/flowpilot-ai.git
 cd flowpilot-ai
 ```
 
----
+### Install
 
-## 2. Create a virtual environment
-
-### Windows
-
-```powershell
+```bash
 python -m venv venv
+
+# Windows
 venv\Scripts\activate
-```
 
----
-
-## 3. Install dependencies
-
-```powershell
 pip install -r requirements.txt
 ```
 
----
+### Configure
 
-## 4. Configure Environment Variables
-
-Create a `.env` file in the project root.
+Create a `.env` file.
 
 ```env
 APP_NAME=FlowPilot AI
 ENVIRONMENT=development
 
 DATABASE_URL=postgresql+psycopg://postgres:<PASSWORD>@localhost:5432/flowpilot
-
 TEST_DATABASE_URL=postgresql+psycopg://postgres:<PASSWORD>@localhost:5432/flowpilot_test
+
+REDIS_BROKER_URL=redis://localhost:6379/0
+REDIS_RESULT_URL=redis://localhost:6379/1
 ```
 
-> **Note:** The `.env` file is ignored by Git and should never be committed.
+### Run
 
----
-
-## 5. Create PostgreSQL Databases
-
-Open PostgreSQL inside Docker:
-
-```powershell
-docker exec -it govprep-pg psql -U postgres
-```
-
-Create the databases:
-
-```sql
-CREATE DATABASE flowpilot;
-
-CREATE DATABASE flowpilot_test;
-```
-
-Exit PostgreSQL:
-
-```sql
-\q
-```
-
----
-
-## 6. Run Database Migrations
-
-```powershell
+```bash
 alembic upgrade head
-```
 
----
-
-## 7. Start the API
-
-```powershell
 uvicorn app.main:app --reload
-```
 
-API:
+celery -A app.worker.celery_app worker --pool=solo --loglevel=info
 
-```
-http://127.0.0.1:8000
-```
-
-Swagger:
-
-```
-http://127.0.0.1:8000/docs
-```
-
-Health Check:
-
-```
-http://127.0.0.1:8000/health
+celery -A app.worker.celery_app beat --loglevel=info
 ```
 
 ---
 
-# Running Tests
-
-Run the complete test suite:
-
-```powershell
-python -m pytest -v
-```
-
-Current repository includes:
-
-- Backend integration tests
-- AI unit tests
-- Evaluation tests
-- Deterministic fake-provider tests
-
-Tests execute against the dedicated **flowpilot_test** database without modifying development data.
-
----
-
-# API Endpoints
+## API
 
 ### Projects
 
@@ -305,43 +176,48 @@ POST /api/v1/projects/{project_id}/workflows
 POST /api/v1/projects/{project_id}/workflows/{workflow_id}/executions
 
 GET /api/v1/projects/{project_id}/workflows/{workflow_id}/executions
+
+GET /api/v1/executions/{execution_id}
+
+GET /api/v1/executions/{execution_id}/events
+
+POST /api/v1/executions/{execution_id}/resume
 ```
+
+---
+
+## Testing
+
+```bash
+python -m pytest
+```
+
+The project includes:
+
+- AI unit tests
+- Workflow engine tests
+- Execution service tests
+- Evaluation tests
+- Integration tests
 
 ---
 
 ## Current Capabilities
 
-- Production-ready FastAPI backend
-- PostgreSQL persistence with SQLAlchemy
-- Alembic migration management
-- Workflow execution engine
-- Stateful workflow execution tracking
-- Extensible step registry
-- AI-powered email decision engine
-- Structured LLM outputs with validation
-- Safe fallback handling
-- Retry mechanism with exponential backoff
-- Idempotent execution requests
-- Checkpoint-based execution recovery
+- Production-grade FastAPI backend
+- Redis-backed asynchronous processing
+- Celery workflow workers
+- AI-powered decision engine
+- Reliable workflow execution
+- Retry and recovery mechanisms
+- Checkpoint-based resume
+- Idempotent execution
 - Heartbeat monitoring
-- Execution event timeline
-- Reliability and recovery test suite
-- Evaluation framework for AI decisions
+- Execution auditing
 - Docker-based local development
-
----
-
-## Roadmap
-
-- Complete AI workflow execution integration
-- MCP server integration
-- Authentication & authorization
-- Background task execution
-- Production deployment
-- Monitoring & observability
 
 ---
 
 ## License
 
-This project is developed for learning, portfolio, and production engineering practice.
+This project is built for learning, portfolio, and production engineering practice.
