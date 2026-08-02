@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     gemini_api_key: str
     gemini_model: str = "gemini-3.5-flash"
 
+    google_client_id: str
+    google_client_secret: str
+    google_redirect_uri: str
+
     redis_broker_url: str = "redis://localhost:6379/0"
     redis_result_url: str = "redis://localhost:6379/1"
 
