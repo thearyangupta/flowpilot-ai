@@ -4,6 +4,10 @@ from app.core.cipher import TextCipher
 from app.models.oauth_connection import OAuthConnection
 from app.services.google_oauth_service import GoogleTokenData
 
+from app.services.google_oauth_service import (
+    GoogleRefreshedTokenData,
+)
+
 
 def store_google_credentials(
     db: Session,
@@ -56,3 +60,29 @@ def decrypt_refresh_token(
         )
 
     return token
+
+
+def persist_refreshed_credentials(
+    db: Session,
+    *,
+    connection: OAuthConnection,
+    token_data: GoogleRefreshedTokenData,
+    cipher: TextCipher,
+) -> None:
+    connection.access_token_ciphertext = (
+        cipher.encrypt(
+            token_data.access_token
+        )
+    )
+
+    if token_data.refresh_token is not None:
+        connection.refresh_token_ciphertext = (
+            cipher.encrypt(
+                token_data.refresh_token
+            )
+        )
+
+    connection.expires_at = token_data.expires_at
+    connection.scopes = list(token_data.scopes)
+
+    db.flush()

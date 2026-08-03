@@ -8,6 +8,10 @@ GOOGLE_AUTHORIZATION_URL = (
 
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 
+GOOGLE_REVOCATION_URL = (
+    "https://oauth2.googleapis.com/revoke"
+)
+
 
 GOOGLE_IDENTITY_SCOPES: tuple[str, ...] = (
     "openid",

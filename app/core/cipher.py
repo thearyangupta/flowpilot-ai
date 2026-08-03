@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from functools import lru_cache
 from typing import Protocol
 
 from cryptography.fernet import (
@@ -6,6 +7,8 @@ from cryptography.fernet import (
     InvalidToken,
     MultiFernet,
 )
+
+from app.core.config import get_settings
 
 
 class TextCipher(Protocol):
@@ -64,8 +67,33 @@ class TokenCipher:
         ciphertext: bytes,
     ) -> bytes:
         try:
-            return self._fernet.rotate(ciphertext)
+            return self._fernet.rotate(
+                ciphertext
+            )
         except InvalidToken as error:
             raise ValueError(
                 "Invalid encrypted token."
             ) from error
+
+
+@lru_cache
+def get_token_cipher() -> TokenCipher:
+    settings = get_settings()
+
+    encoded_keys = [
+        value.strip()
+        for value in settings.token_encryption_keys.split(",")
+        if value.strip()
+    ]
+
+    if not encoded_keys:
+        raise ValueError(
+            "At least one token encryption key must be configured."
+        )
+
+    keys = [
+        encoded_key.encode("ascii")
+        for encoded_key in encoded_keys
+    ]
+
+    return TokenCipher(keys)

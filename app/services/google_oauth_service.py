@@ -7,8 +7,16 @@ import httpx
 from app.core.config import get_settings
 from app.core.oauth import GOOGLE_TOKEN_URL
 
+from app.core.oauth import (
+    GOOGLE_REVOCATION_URL,
+    GOOGLE_TOKEN_URL,
+)
+
 
 class GoogleOAuthExchangeError(Exception):
+    pass
+
+class GoogleOAuthRevocationError(Exception):
     pass
 
 
@@ -23,6 +31,17 @@ class GoogleTokenData:
     scopes: tuple[str, ...] = ()
     expires_at: datetime | None = None
     token_type: str = "Bearer"
+
+@dataclass(frozen=True, slots=True)
+class GoogleRefreshedTokenData:
+    access_token: str = field(repr=False)
+    expires_at: datetime
+    scopes: tuple[str, ...] = ()
+    token_type: str = "Bearer"
+    refresh_token: str | None = field(
+        default=None,
+        repr=False,
+    )
 
 
 def exchange_authorization_code(
@@ -154,3 +173,132 @@ def _calculate_expiry(
     return datetime.now(timezone.utc) + timedelta(
         seconds=lifetime_seconds
     )
+
+
+def refresh_google_access_token(
+    refresh_token: str,
+    *,
+    client: httpx.Client | None = None,
+) -> GoogleRefreshedTokenData:
+    settings = get_settings()
+
+    payload = {
+        "refresh_token": refresh_token,
+        "client_id": settings.google_client_id,
+        "client_secret": settings.google_client_secret,
+        "grant_type": "refresh_token",
+    }
+
+    owns_client = client is None
+    http_client = client or httpx.Client(
+        timeout=httpx.Timeout(10.0),
+    )
+
+    try:
+        response = http_client.post(
+            GOOGLE_TOKEN_URL,
+            data=payload,
+            headers={
+                "Accept": "application/json",
+            },
+        )
+
+        response.raise_for_status()
+        response_data: dict[str, Any] = response.json()
+
+    except (
+        httpx.RequestError,
+        httpx.HTTPStatusError,
+        ValueError,
+    ) as error:
+        raise GoogleOAuthExchangeError(
+            "Google access-token refresh failed."
+        ) from error
+
+    finally:
+        if owns_client:
+            http_client.close()
+
+    access_token = response_data.get("access_token")
+
+    if not isinstance(access_token, str) or not access_token:
+        raise GoogleOAuthExchangeError(
+            "Google refresh response did not contain an access token."
+        )
+
+    expires_at = _calculate_expiry(
+        response_data.get("expires_in")
+    )
+
+    if expires_at is None:
+        raise GoogleOAuthExchangeError(
+            "Google refresh response did not contain token expiry."
+        )
+
+    scopes = _parse_scopes(
+        response_data.get("scope")
+    )
+
+    token_type = response_data.get(
+        "token_type",
+        "Bearer",
+    )
+
+    if not isinstance(token_type, str):
+        raise GoogleOAuthExchangeError(
+            "Google returned an invalid token type."
+        )
+
+    new_refresh_token = response_data.get(
+        "refresh_token"
+    )
+
+    if (
+        new_refresh_token is not None
+        and not isinstance(new_refresh_token, str)
+    ):
+        raise GoogleOAuthExchangeError(
+            "Google returned an invalid refresh token."
+        )
+
+    return GoogleRefreshedTokenData(
+        access_token=access_token,
+        expires_at=expires_at,
+        scopes=scopes,
+        token_type=token_type,
+        refresh_token=new_refresh_token,
+    )
+
+
+def revoke_google_token(
+    token: str,
+    *,
+    client: httpx.Client | None = None,
+) -> None:
+    owns_client = client is None
+    http_client = client or httpx.Client(
+        timeout=httpx.Timeout(10.0),
+    )
+
+    try:
+        response = http_client.post(
+            GOOGLE_REVOCATION_URL,
+            data={"token": token},
+            headers={
+                "Accept": "application/json",
+            },
+        )
+
+        response.raise_for_status()
+
+    except (
+        httpx.RequestError,
+        httpx.HTTPStatusError,
+    ) as error:
+        raise GoogleOAuthRevocationError(
+            "Google token revocation failed."
+        ) from error
+
+    finally:
+        if owns_client:
+            http_client.close()
