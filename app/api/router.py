@@ -6,6 +6,7 @@ from fastapi import (
     HTTPException,
     Response,
     status,
+    Query,
 )
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -44,6 +45,21 @@ from app.api.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.user import UserRead
 
+
+from app.core.cipher import get_token_cipher
+from app.schemas.auth import (
+    GoogleOAuthCallbackRead,
+    GoogleOAuthStartRead,
+)
+from app.services.oauth_callback_service import (
+    OAuthCallbackError,
+    complete_google_oauth_callback,
+)
+from app.services.oauth_start_service import (
+    OAuthStartError,
+    create_google_oauth_start,
+)
+
 router = APIRouter()
 
 
@@ -57,6 +73,91 @@ def database_check(
         "status": "ok",
         "database": "connected",
     }
+
+
+@router.get(
+    "/auth/google/start",
+    response_model=GoogleOAuthStartRead,
+    tags=["authentication"],
+)
+def start_google_oauth(
+    db: Session = Depends(get_db),
+) -> GoogleOAuthStartRead:
+    try:
+        result = create_google_oauth_start(
+            db=db,
+            cipher=get_token_cipher(),
+        )
+
+        db.commit()
+
+        return GoogleOAuthStartRead(
+            authorization_url=result.authorization_url,
+            expires_at=result.expires_at,
+        )
+
+    except OAuthStartError as error:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Google authorization could not be started.",
+        ) from error
+
+
+@router.get(
+    "/auth/google/callback",
+    response_model=GoogleOAuthCallbackRead,
+    tags=["authentication"],
+)
+def finish_google_oauth(
+    code: str | None = None,
+    state_value: str | None = Query(
+        default=None,
+        alias="state",
+    ),
+    error: str | None = None,
+    db: Session = Depends(get_db),
+) -> GoogleOAuthCallbackRead:
+    if error is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google authorization was not completed.",
+        )
+
+    if not code or not state_value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Google authorization code and state are required."
+            ),
+        )
+
+    try:
+        result = complete_google_oauth_callback(
+            db=db,
+            code=code,
+            state=state_value,
+            cipher=get_token_cipher(),
+        )
+
+        db.commit()
+
+        return GoogleOAuthCallbackRead(
+            access_token=result.flowpilot_access_token,
+            user=result.user,
+        )
+
+    except OAuthCallbackError as callback_error:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Google OAuth callback could not be completed."
+            ),
+        ) from callback_error
+
 
 
 @router.get(
