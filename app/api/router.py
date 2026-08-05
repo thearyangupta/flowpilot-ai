@@ -60,6 +60,11 @@ from app.services.oauth_start_service import (
     create_google_oauth_start,
 )
 
+from app.core.oauth import (
+    GOOGLE_IDENTITY_SCOPES,
+    OAuthPurpose,
+)
+
 router = APIRouter()
 
 
@@ -87,6 +92,8 @@ def start_google_oauth(
         result = create_google_oauth_start(
             db=db,
             cipher=get_token_cipher(),
+            purpose=OAuthPurpose.LOGIN,
+            requested_scopes=GOOGLE_IDENTITY_SCOPES,
         )
 
         db.commit()

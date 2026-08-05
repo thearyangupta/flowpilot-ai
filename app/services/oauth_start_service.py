@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -8,7 +9,7 @@ from app.core.cipher import TextCipher
 from app.core.config import get_settings
 from app.core.oauth import (
     GOOGLE_AUTHORIZATION_URL,
-    GOOGLE_IDENTITY_SCOPES,
+    OAuthPurpose,
     generate_code_challenge,
     generate_code_verifier,
     generate_oauth_state,
@@ -34,7 +35,16 @@ def create_google_oauth_start(
     db: Session,
     *,
     cipher: TextCipher,
+    purpose: OAuthPurpose,
+    requested_scopes: tuple[str, ...],
+    user_id: UUID | None = None,
 ) -> OAuthStartResult:
+    _validate_oauth_start(
+        purpose=purpose,
+        requested_scopes=requested_scopes,
+        user_id=user_id,
+    )
+
     settings = get_settings()
 
     state = generate_oauth_state()
@@ -53,6 +63,9 @@ def create_google_oauth_start(
     )
 
     attempt = OAuthAttempt(
+        user_id=user_id,
+        purpose=purpose.value,
+        requested_scopes=list(requested_scopes),
         state_hash=hash_oauth_state(state),
         verifier_ciphertext=verifier_ciphertext,
         expires_at=expires_at,
@@ -66,7 +79,7 @@ def create_google_oauth_start(
             "client_id": settings.google_client_id,
             "redirect_uri": settings.google_redirect_uri,
             "response_type": "code",
-            "scope": " ".join(GOOGLE_IDENTITY_SCOPES),
+            "scope": " ".join(requested_scopes),
             "state": state,
             "code_challenge": challenge,
             "code_challenge_method": "S256",
@@ -81,3 +94,38 @@ def create_google_oauth_start(
         ),
         expires_at=expires_at,
     )
+
+
+def _validate_oauth_start(
+    *,
+    purpose: OAuthPurpose,
+    requested_scopes: tuple[str, ...],
+    user_id: UUID | None,
+) -> None:
+    if not requested_scopes:
+        raise OAuthStartError(
+            "At least one OAuth scope is required."
+        )
+
+    if len(set(requested_scopes)) != len(requested_scopes):
+        raise OAuthStartError(
+            "OAuth scopes must not contain duplicates."
+        )
+
+    if (
+        purpose == OAuthPurpose.LOGIN
+        and user_id is not None
+    ):
+        raise OAuthStartError(
+            "Login authorization must not be bound "
+            "to an existing user."
+        )
+
+    if (
+        purpose == OAuthPurpose.GMAIL_CONNECT
+        and user_id is None
+    ):
+        raise OAuthStartError(
+            "Gmail authorization requires an "
+            "authenticated user."
+        )

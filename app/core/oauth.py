@@ -1,6 +1,8 @@
 import base64
 import hashlib
 import secrets
+from enum import StrEnum
+
 
 GOOGLE_AUTHORIZATION_URL = (
     "https://accounts.google.com/o/oauth2/v2/auth"
@@ -13,10 +15,21 @@ GOOGLE_REVOCATION_URL = (
 )
 
 
+class OAuthPurpose(StrEnum):
+    LOGIN = "login"
+    GMAIL_CONNECT = "gmail_connect"
+
+
 GOOGLE_IDENTITY_SCOPES: tuple[str, ...] = (
     "openid",
     "email",
     "profile",
+)
+
+
+GOOGLE_GMAIL_SCOPES: tuple[str, ...] = (
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.compose",
 )
 
 
@@ -35,6 +48,8 @@ def generate_code_verifier() -> str:
 def generate_code_challenge(verifier: str) -> str:
     digest = hashlib.sha256(verifier.encode("ascii")).digest()
 
-    challenge = base64.urlsafe_b64encode(digest).decode("ascii")
+    challenge = base64.urlsafe_b64encode(
+        digest
+    ).decode("ascii")
 
     return challenge.rstrip("=")
