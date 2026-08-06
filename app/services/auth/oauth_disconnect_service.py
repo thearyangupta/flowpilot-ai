@@ -2,11 +2,11 @@ from sqlalchemy.orm import Session
 
 from app.core.cipher import TextCipher
 from app.models.oauth_connection import OAuthConnection
-from app.services.google_oauth_service import (
+from app.services.google.google_oauth_service import (
     GoogleOAuthRevocationError,
     revoke_google_token,
 )
-from app.services.oauth_credentials_service import (
+from app.services.auth.oauth_credentials_service import (
     decrypt_access_token,
     decrypt_refresh_token,
 )

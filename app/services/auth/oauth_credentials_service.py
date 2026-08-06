@@ -2,9 +2,9 @@ from sqlalchemy.orm import Session
 
 from app.core.cipher import TextCipher
 from app.models.oauth_connection import OAuthConnection
-from app.services.google_oauth_service import GoogleTokenData
+from app.services.google.google_oauth_service import GoogleTokenData
 
-from app.services.google_oauth_service import (
+from app.services.google.google_oauth_service import (
     GoogleRefreshedTokenData,
 )
 
@@ -20,9 +20,10 @@ def store_google_credentials(
         token_data.access_token
     )
 
-    connection.refresh_token_ciphertext = cipher.encrypt(
-        token_data.refresh_token
-    )
+    if token_data.refresh_token is not None:
+        connection.refresh_token_ciphertext = cipher.encrypt(
+            token_data.refresh_token
+        )
 
     connection.scopes = list(token_data.scopes)
     connection.expires_at = token_data.expires_at

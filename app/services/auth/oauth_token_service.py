@@ -1,21 +1,19 @@
-from datetime import datetime, timedelta, timezone
-
-from app.models.oauth_connection import OAuthConnection
-
 from collections.abc import Iterable
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
 from app.core.cipher import TextCipher
 from app.models.oauth_connection import OAuthConnection
-from app.services.google_oauth_service import (
+from app.services.google.google_oauth_service import (
     refresh_google_access_token,
 )
-from app.services.oauth_credentials_service import (
+from app.services.auth.oauth_credentials_service import (
     decrypt_access_token,
     decrypt_refresh_token,
     persist_refreshed_credentials,
 )
+
 
 EXPIRY_SAFETY_WINDOW = timedelta(minutes=2)
 
@@ -35,6 +33,7 @@ def should_refresh(
     return expires_at <= (
         utc_now() + EXPIRY_SAFETY_WINDOW
     )
+
 
 class MissingGoogleScopes(Exception):
     def __init__(
@@ -57,18 +56,29 @@ class MissingGoogleScopes(Exception):
         )
 
 
-def ensure_google_scopes(
-    connection: OAuthConnection,
+def ensure_granted_google_scopes(
+    *,
+    granted_scopes: Iterable[str],
     required_scopes: Iterable[str],
 ) -> None:
     required = set(required_scopes)
-    granted = set(connection.scopes or [])
+    granted = set(granted_scopes)
 
     if not required.issubset(granted):
         raise MissingGoogleScopes(
             required_scopes=required,
             granted_scopes=granted,
         )
+
+
+def ensure_google_scopes(
+    connection: OAuthConnection,
+    required_scopes: Iterable[str],
+) -> None:
+    ensure_granted_google_scopes(
+        granted_scopes=connection.scopes or [],
+        required_scopes=required_scopes,
+    )
 
 
 def get_valid_google_access_token(

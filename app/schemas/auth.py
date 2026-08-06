@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -11,6 +12,11 @@ class GoogleOAuthStartRead(BaseModel):
 
 
 class GoogleOAuthCallbackRead(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
+    status: Literal[
+        "authenticated",
+        "gmail_connected",
+    ]
+
+    access_token: str | None = None
+    token_type: str | None = None
     user: UserRead

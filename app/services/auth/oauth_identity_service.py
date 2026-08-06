@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.models.oauth_connection import OAuthConnection
 from app.models.user import User
-from app.services.google_identity_service import GoogleIdentity
+from app.services.google.google_identity_service import GoogleIdentity
 
 
 GOOGLE_PROVIDER = "google"

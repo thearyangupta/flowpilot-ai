@@ -51,11 +51,11 @@ from app.schemas.auth import (
     GoogleOAuthCallbackRead,
     GoogleOAuthStartRead,
 )
-from app.services.oauth_callback_service import (
+from app.services.auth.oauth_callback_service import (
     OAuthCallbackError,
     complete_google_oauth_callback,
 )
-from app.services.oauth_start_service import (
+from app.services.auth.oauth_start_service import (
     OAuthStartError,
     create_google_oauth_start,
 )
@@ -63,6 +63,7 @@ from app.services.oauth_start_service import (
 from app.core.oauth import (
     GOOGLE_IDENTITY_SCOPES,
     OAuthPurpose,
+    GOOGLE_GMAIL_SCOPES,
 )
 
 router = APIRouter()
@@ -111,6 +112,46 @@ def start_google_oauth(
             detail="Google authorization could not be started.",
         ) from error
 
+@router.get(
+    "/integrations/gmail/connect",
+    response_model=GoogleOAuthStartRead,
+    tags=["integrations"],
+)
+def connect_gmail(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> GoogleOAuthStartRead:
+    requested_scopes = (
+        GOOGLE_IDENTITY_SCOPES
+        + GOOGLE_GMAIL_SCOPES
+    )
+
+    try:
+        result = create_google_oauth_start(
+            db=db,
+            cipher=get_token_cipher(),
+            purpose=OAuthPurpose.GMAIL_CONNECT,
+            requested_scopes=requested_scopes,
+            user_id=current_user.id,
+        )
+
+        db.commit()
+
+        return GoogleOAuthStartRead(
+            authorization_url=result.authorization_url,
+            expires_at=result.expires_at,
+        )
+
+    except OAuthStartError as error:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=(
+                "Gmail authorization could not be started."
+            ),
+        ) from error
+
 
 @router.get(
     "/auth/google/callback",
@@ -150,8 +191,16 @@ def finish_google_oauth(
 
         db.commit()
 
+        if result.purpose == OAuthPurpose.LOGIN:
+            return GoogleOAuthCallbackRead(
+                status="authenticated",
+                access_token=result.flowpilot_access_token,
+                token_type="bearer",
+                user=result.user,
+            )
+
         return GoogleOAuthCallbackRead(
-            access_token=result.flowpilot_access_token,
+            status="gmail_connected",
             user=result.user,
         )
 
@@ -164,8 +213,6 @@ def finish_google_oauth(
                 "Google OAuth callback could not be completed."
             ),
         ) from callback_error
-
-
 
 @router.get(
     "/me",
