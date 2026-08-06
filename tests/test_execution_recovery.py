@@ -7,7 +7,7 @@ from app.models.enums import (
 )
 from app.models.step_run import StepRun
 from app.models.workflow import Workflow
-from app.services.execution_service import (
+from app.services.execution.execution_service import (
     create_or_return_existing,
     get_execution_events,
 )

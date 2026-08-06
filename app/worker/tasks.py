@@ -2,7 +2,7 @@ from uuid import UUID
 from app.models.enums import ExecutionStatus
 from app.db.session import SessionLocal
 from app.models.execution import Execution
-from app.services.execution_event_service import create_execution_event
+from app.services.execution.execution_event_service import create_execution_event
 from app.services.workflow_runner import run,resume
 from app.worker.celery_app import celery_app
 from app.core.exceptions import RetryableExecutionError

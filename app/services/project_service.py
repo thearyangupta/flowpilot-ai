@@ -9,7 +9,7 @@ from app.models.project import Project
 from app.models.workflow import Workflow
 from app.schemas.execution import ExecutionCreate
 from app.schemas.project import ProjectCreate
-from app.services.execution_service import create_or_return_existing
+from app.services.execution.execution_service import create_or_return_existing
 
 
 def create(

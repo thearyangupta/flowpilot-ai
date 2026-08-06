@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from app.db.session import SessionLocal
-from app.services.execution_maintenance_service import (
+from app.services.execution.execution_maintenance_service import (
     find_stale_executions,
 )
 from app.worker.celery_app import celery_app

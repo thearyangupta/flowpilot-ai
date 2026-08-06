@@ -5,7 +5,7 @@ from app.core.exceptions import IdempotencyConflictError
 from sqlalchemy.orm import Session
 
 from app.models.workflow import Workflow
-from app.services.execution_service import (
+from app.services.execution.execution_service import (
     create_or_return_existing,
 )
 

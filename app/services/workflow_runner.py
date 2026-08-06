@@ -11,7 +11,7 @@ from app.domain.step_registry import (
 from app.models.enums import ExecutionStatus, StepRunStatus
 from app.models.execution import Execution
 from app.models.step_run import StepRun
-from app.services.execution_event_service import create_execution_event
+from app.services.execution.execution_event_service import create_execution_event
 
 
 def _get_completed_checkpoints(
