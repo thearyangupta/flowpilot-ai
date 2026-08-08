@@ -14,3 +14,9 @@ class StepRunStatus(str, Enum):
     RETRY_WAIT = "retry_wait"
     COMPLETED = "completed"
     FAILED = "failed"
+
+class ReplyDraftStatus(str, Enum):
+    PENDING_APPROVAL = "pending_approval"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    SENT = "sent"
