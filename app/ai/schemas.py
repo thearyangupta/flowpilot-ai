@@ -1,6 +1,6 @@
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field,ConfigDict
 
 
 class Intent(str, Enum):
@@ -41,4 +41,20 @@ class EmailDecision(BaseModel):
 
     needs_human_review: bool = Field(
         description="Whether the decision should be reviewed by a human before workflow execution."
+    )
+
+
+class EmailDraft(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    subject: str = Field(
+        min_length=1,
+        max_length=998,
+        description="Draft email subject.",
+    )
+
+    body: str = Field(
+        min_length=1,
+        max_length=5000,
+        description="Draft email body.",
     )
