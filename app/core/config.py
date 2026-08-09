@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     google_client_secret: str
     google_redirect_uri: str
 
+    gmail_poll_query: str = ""
+
     redis_broker_url: str = "redis://localhost:6379/0"
     redis_result_url: str = "redis://localhost:6379/1"
 

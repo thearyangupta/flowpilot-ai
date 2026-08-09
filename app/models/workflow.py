@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from app.models.execution import Execution
     from app.models.project import Project
     from app.models.workflow_step import WorkflowStep
-
+    from app.models.oauth_connection import OAuthConnection
 
 class Workflow(TimestampMixin, Base):
     __tablename__ = "workflows"
@@ -50,3 +50,7 @@ class Workflow(TimestampMixin, Base):
         passive_deletes=True,
         order_by="WorkflowStep.position",
     )
+
+    oauth_connections: Mapped[list["OAuthConnection"]] = relationship(
+        back_populates="workflow",
+)

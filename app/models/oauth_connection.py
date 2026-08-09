@@ -11,6 +11,7 @@ from app.db.mixins import TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.user import User
+    from app.models.workflow import Workflow
 
 
 class OAuthConnection(TimestampMixin, Base):
@@ -77,4 +78,15 @@ class OAuthConnection(TimestampMixin, Base):
     gmail_watch_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+)
+
+
+    workflow_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("workflows.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+)
+
+    workflow: Mapped["Workflow | None"] = relationship(
+        back_populates="oauth_connections",
 )

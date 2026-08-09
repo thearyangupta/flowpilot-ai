@@ -9,6 +9,7 @@ from app.models.execution import Execution
 from app.services.execution.execution_service import (
     create_or_return_existing,
 )
+from app.worker.tasks import run_execution_task
 
 class GmailTriggerError(Exception):
     """Base exception for Gmail trigger failures."""
@@ -58,9 +59,13 @@ def trigger_email_workflow(
         provider_message_id=payload.provider_message_id,
     )
 
-    return create_or_return_existing(
+    execution,created = create_or_return_existing(
         db=db,
         workflow_id=payload.workflow_id,
         idempotency_key=idempotency_key,
         initial_context=payload.to_context(),
     )
+    if created:
+        run_execution_task.delay(str(execution.id))
+
+    return execution, created

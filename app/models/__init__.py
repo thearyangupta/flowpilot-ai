@@ -9,6 +9,7 @@ from app.models.workflow_step import WorkflowStep
 from app.models.oauth_attempt import OAuthAttempt
 from app.models.reply_draft import ReplyDraft
 from app.models.reply_draft_audit_event import ReplyDraftAuditEvent
+from app.models.gmail_message import GmailMessage
 
 __all__ = [
     "Execution",
@@ -22,4 +23,5 @@ __all__ = [
     "OAuthAttempt",
     "ReplyDraft",
     "ReplyDraftAuditEvent",
+    "GmailMessage",
 ]
