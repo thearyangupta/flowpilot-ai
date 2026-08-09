@@ -68,3 +68,13 @@ class OAuthConnection(TimestampMixin, Base):
     user: Mapped["User"] = relationship(
         back_populates="oauth_connections",
     )
+
+    gmail_history_id: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+)
+
+    gmail_watch_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+)

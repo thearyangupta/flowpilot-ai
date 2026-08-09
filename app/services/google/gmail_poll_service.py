@@ -44,6 +44,18 @@ class GmailMessagePage:
     messages: tuple[GmailMessageReference, ...]
     next_page_token: str | None
 
+@dataclass(frozen=True)
+class GmailHistoryMessage:
+    provider_message_id: str
+    provider_thread_id: str | None
+
+
+@dataclass(frozen=True)
+class GmailHistoryPage:
+    messages: tuple[GmailHistoryMessage, ...]
+    next_page_token: str | None
+    history_id: str | None
+
 
 def list_gmail_messages(
     db: Session,
@@ -168,6 +180,97 @@ def poll_selected_messages(
             db=db,
             user_id=user_id,
             query=query,
+            page_token=page_token,
+        )
+
+        collected.extend(page.messages)
+
+        if page.next_page_token is None:
+            break
+
+        page_token = page.next_page_token
+
+    return tuple(collected)
+
+
+def list_gmail_history(
+    db: Session,
+    *,
+    user_id: UUID,
+    start_history_id: str,
+    page_token: str | None = None,
+) -> GmailHistoryPage:
+    if not start_history_id.strip():
+        raise GmailPollError(
+            "A Gmail history id is required."
+        )
+
+    gmail = build_gmail_client(
+        db=db,
+        user_id=user_id,
+    )
+
+    try:
+        response: dict[str, Any] = (
+            gmail.users()
+            .history()
+            .list(
+                userId="me",
+                startHistoryId=start_history_id,
+                pageToken=page_token,
+                historyTypes=["messageAdded"],
+            )
+            .execute()
+        )
+
+    except Exception as error:
+        raise GmailMessageListError(
+            "Gmail history could not be listed."
+        ) from error
+
+    collected: list[GmailHistoryMessage] = []
+
+    for history_record in response.get("history", []):
+        for added in history_record.get(
+            "messagesAdded",
+            [],
+        ):
+            message = added.get("message", {})
+
+            provider_message_id = message.get("id")
+
+            if not provider_message_id:
+                continue
+
+            collected.append(
+                GmailHistoryMessage(
+                    provider_message_id=provider_message_id,
+                    provider_thread_id=message.get("threadId"),
+                )
+            )
+
+    return GmailHistoryPage(
+        messages=tuple(collected),
+        next_page_token=response.get("nextPageToken"),
+        history_id=response.get("historyId"),
+    )
+
+
+def poll_gmail_history(
+    db: Session,
+    *,
+    user_id: UUID,
+    start_history_id: str,
+) -> tuple[GmailHistoryMessage, ...]:
+    collected: list[GmailHistoryMessage] = []
+
+    page_token: str | None = None
+
+    while True:
+        page = list_gmail_history(
+            db=db,
+            user_id=user_id,
+            start_history_id=start_history_id,
             page_token=page_token,
         )
 

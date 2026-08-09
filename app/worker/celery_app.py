@@ -11,7 +11,9 @@ celery_app = Celery(
     broker=settings.redis_broker_url,
     backend=settings.redis_result_url,
     include=["app.worker.tasks",
-             "app.worker.maintenance_tasks"],
+             "app.worker.maintenance_tasks",
+             "app.worker.gmail_tasks",
+             ],
 )
 
 celery_app.conf.update(
@@ -38,6 +40,15 @@ celery_app.conf.beat_schedule = {
             "queue": "maintenance",
         },
     },
+
+    "poll-connected-gmail": {
+        "task": "flowpilot.gmail.poll_connected_accounts",
+        "schedule": 120.0,
+        "options": {
+            "queue": "maintenance",
+        },
+    },
+
     "expire-old-task-results": {
         "task": "flowpilot.maintenance.expire_results",
         "schedule": crontab(
