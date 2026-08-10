@@ -19,6 +19,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 practice.py
+trial.py
 
 # Celery beat schedule files
 celerybeat-schedule.bak
