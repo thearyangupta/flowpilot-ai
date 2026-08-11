@@ -38,6 +38,11 @@ class KnowledgeDocument(TimestampMixin, Base):
         String(64),
         nullable=False,
     )
+    
+    storage_key: Mapped[str] = mapped_column(
+        String(512),
+        nullable=False,
+    )
 
     status: Mapped[str] = mapped_column(
         default="uploaded",
