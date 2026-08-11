@@ -10,6 +10,8 @@ from app.models.oauth_attempt import OAuthAttempt
 from app.models.reply_draft import ReplyDraft
 from app.models.reply_draft_audit_event import ReplyDraftAuditEvent
 from app.models.gmail_message import GmailMessage
+from app.models.knowledge_chunk import KnowledgeChunk
+from app.models.knowledge_document import KnowledgeDocument
 
 __all__ = [
     "Execution",
@@ -24,4 +26,6 @@ __all__ = [
     "ReplyDraft",
     "ReplyDraftAuditEvent",
     "GmailMessage",
+    "KnowledgeChunk"
+    "KnowledgeDocument"
 ]
