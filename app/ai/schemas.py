@@ -58,3 +58,39 @@ class EmailDraft(BaseModel):
         max_length=5000,
         description="Draft email body.",
     )
+
+
+class GroundedReply(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    subject: str = Field(
+        min_length=1,
+        max_length=998,
+        description="Grounded reply subject.",
+    )
+
+    body: str = Field(
+        min_length=1,
+        max_length=5000,
+        description="Grounded reply body with source citations.",
+    )
+
+    citation_ids: list[str] = Field(
+        default_factory=list,
+        description="Knowledge source labels used by the reply.",
+    )
+
+    unsupported: bool = Field(
+        description=(
+            "True when the supplied knowledge does not "
+            "adequately support a safe reply."
+        ),
+    )
+
+    missing_information: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Information required to answer safely "
+            "when evidence is insufficient."
+        ),
+    )
