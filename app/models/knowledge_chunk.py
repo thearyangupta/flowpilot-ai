@@ -1,13 +1,19 @@
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Computed,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Computed
 
 if TYPE_CHECKING:
     from app.models.knowledge_document import KnowledgeDocument
@@ -18,6 +24,14 @@ class KnowledgeChunk(TimestampMixin, Base):
 
     __table_args__ = (
         UniqueConstraint("document_id", "ordinal"),
+        Index(
+            "ix_knowledge_chunks_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_ops={
+                "embedding": "vector_cosine_ops",
+            },
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -42,6 +56,14 @@ class KnowledgeChunk(TimestampMixin, Base):
         nullable=False,
     )
 
+    token_start: Mapped[int] = mapped_column(
+        nullable=False,
+    )
+
+    token_end: Mapped[int] = mapped_column(
+        nullable=False,
+    )
+
     content: Mapped[str] = mapped_column(
         Text,
         nullable=False,
@@ -50,18 +72,24 @@ class KnowledgeChunk(TimestampMixin, Base):
     token_count: Mapped[int] = mapped_column(
         nullable=False,
     )
-    
+
+    chunk_version: Mapped[str] = mapped_column(
+        String(12),
+        nullable=False,
+    )
+
     embedding: Mapped[list[float] | None] = mapped_column(
         Vector(1536),
         nullable=True,
     )
+
     search_vector: Mapped[str | None] = mapped_column(
         Computed(
             "to_tsvector('english', content)",
             persisted=True,
         ),
         nullable=True,
-)
+    )
 
     document: Mapped["KnowledgeDocument"] = relationship(
         back_populates="chunks",

@@ -4,6 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.knowledge_document import KnowledgeDocument
+from app.models.knowledge_chunk import KnowledgeChunk
+from app.services.knowledge.chunking_service import ChunkData,build_chunk_version
 
 
 def get_by_checksum(
@@ -67,3 +69,32 @@ def mark_failed(
     document.status = "failed"
     db.flush()
     return document
+
+
+def create_chunks(
+    db: Session,
+    document: KnowledgeDocument,
+    chunks: list[ChunkData],
+    embedding_model: str,
+) -> list[KnowledgeChunk]:
+    knowledge_chunks = [
+        KnowledgeChunk(
+            document_id=document.id,
+            user_id=document.user_id,
+            ordinal=chunk.ordinal,
+            token_start=chunk.token_start,
+            token_end=chunk.token_end,
+            content=chunk.content,
+            token_count=chunk.token_count,
+            chunk_version=build_chunk_version(
+                embedding_model=embedding_model,
+                content=chunk.content,
+            ),
+        )
+        for chunk in chunks
+    ]
+
+    db.add_all(knowledge_chunks)
+    db.flush()
+
+    return knowledge_chunks
