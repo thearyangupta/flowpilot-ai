@@ -86,7 +86,6 @@ def create_chunks(
     db: Session,
     document: KnowledgeDocument,
     chunks: list[ChunkData],
-    embedding_model: str,
 ) -> list[KnowledgeChunk]:
     knowledge_chunks = [
         KnowledgeChunk(
@@ -98,7 +97,6 @@ def create_chunks(
             content=chunk.content,
             token_count=chunk.token_count,
             chunk_version=build_chunk_version(
-                embedding_model=embedding_model,
                 content=chunk.content,
             ),
         )

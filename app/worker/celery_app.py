@@ -28,6 +28,9 @@ celery_app.conf.update(
         "flowpilot.maintenance.*": {
             "queue": "maintenance",
         },
+        "flowpilot.knowledge.embed_document": {
+            "queue": "workflows",
+        },
     },
     worker_prefetch_multiplier=1,
 )

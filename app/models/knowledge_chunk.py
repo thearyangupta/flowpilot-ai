@@ -83,6 +83,16 @@ class KnowledgeChunk(TimestampMixin, Base):
         nullable=True,
     )
 
+    embedding_model: Mapped[str | None] = mapped_column(
+        String(120),
+        nullable=True,
+    )
+
+    embedding_key: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+    )
+
     search_vector: Mapped[str | None] = mapped_column(
         Computed(
             "to_tsvector('english', content)",

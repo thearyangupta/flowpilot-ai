@@ -87,36 +87,32 @@ def test_token_chunks_have_stable_ordinals_and_offsets():
 
 
 def test_build_chunk_version_is_deterministic():
-    from app.services.knowledge.chunking_service import build_chunk_version
+    from app.services.knowledge.chunking_service import (
+        build_chunk_version,
+    )
 
     first = build_chunk_version(
-        embedding_model="model-a",
         content="hello world",
     )
 
     second = build_chunk_version(
-        embedding_model="model-a",
         content="hello world",
     )
 
     assert first == second
-    assert len(first) == 12
 
 
-def test_build_chunk_version_changes_when_model_or_content_changes():
-    from app.services.knowledge.chunking_service import build_chunk_version
-
-    base = build_chunk_version("model-a", "hello world")
-
-    different_model = build_chunk_version(
-        "model-b",
-        "hello world",
+def test_build_chunk_version_changes_when_content_changes():
+    from app.services.knowledge.chunking_service import (
+        build_chunk_version,
     )
 
-    different_content = build_chunk_version(
-        "model-a",
-        "different content",
+    first = build_chunk_version(
+        content="hello world",
     )
 
-    assert base != different_model
-    assert base != different_content
+    second = build_chunk_version(
+        content="hello world changed",
+    )
+
+    assert first != second

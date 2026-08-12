@@ -60,8 +60,8 @@ def token_chunks(
 
 
 def build_chunk_version(
-    embedding_model: str,
     content: str,
 ) -> str:
-    value = f"{embedding_model}:{content}"
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:12]
+    return hashlib.sha256(
+        content.encode("utf-8")
+    ).hexdigest()[:12]
