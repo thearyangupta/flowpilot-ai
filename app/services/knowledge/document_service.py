@@ -44,6 +44,17 @@ def create_document(
     return document
 
 
+def save_extracted_text(
+    db: Session,
+    document: KnowledgeDocument,
+    text: str,
+) -> KnowledgeDocument:
+    document.extracted_text = text
+    db.flush()
+
+    return document
+
+
 def mark_processing(
     db: Session,
     document: KnowledgeDocument,

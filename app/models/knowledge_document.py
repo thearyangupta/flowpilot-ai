@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -48,7 +48,10 @@ class KnowledgeDocument(TimestampMixin, Base):
         default="uploaded",
         nullable=False,
     )
-
+    extracted_text: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
     chunks: Mapped[list["KnowledgeChunk"]] = relationship(
         back_populates="document",
         cascade="all, delete-orphan",
