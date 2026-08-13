@@ -18,7 +18,11 @@ StepHandler = Callable[
 
 
 _STEP_REGISTRY: dict[str, StepHandler] = {}
-
+_RUNTIME_STEP_TYPES = frozenset(
+    {
+        "classify_email",
+    }
+)
 
 def register_step(
     step_type: str,
@@ -59,11 +63,14 @@ def get_step_handler(
 
 
 def is_step_registered(step_type: str) -> bool:
-    return step_type in _STEP_REGISTRY
+    return (
+        step_type in _STEP_REGISTRY
+        or step_type in _RUNTIME_STEP_TYPES
+    )
 
 
 def get_registered_step_types() -> frozenset[str]:
-    return frozenset(_STEP_REGISTRY)
+    return frozenset(_STEP_REGISTRY) | _RUNTIME_STEP_TYPES
 
 
 def build_step_registry(

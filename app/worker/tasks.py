@@ -27,8 +27,25 @@ from app.services.knowledge.embedding_validation import (
 from app.services.knowledge.embedding_version import (
     embedding_key,
 )
+from app.ai.decision_service import DecisionService
+from app.ai.providers.gemini import GeminiDecisionProvider
+from app.domain.step_registry import build_step_registry
 import random
 
+def build_worker_step_registry():
+    settings = get_settings()
+
+    decision_provider = GeminiDecisionProvider(
+        settings
+    )
+
+    decision_service = DecisionService(
+        decision_provider
+    )
+
+    return build_step_registry(
+        decision_service
+    )
 
 @celery_app.task(
     bind=True,
@@ -52,7 +69,8 @@ def run_execution_task(
 
         if execution is None:
             return
-
+        
+        step_registry = build_worker_step_registry()
         create_execution_event(
             db=db,
             execution_id=execution.id,
@@ -70,11 +88,13 @@ def run_execution_task(
                 db=db,
                 execution=execution,
                 initial_context=dict(execution.input_data or {}),
+                step_registry=step_registry,
             )
         else:
             resume(
                 db=db,
                 execution=execution,
+                step_registry=step_registry,
             )
 
     except RetryableExecutionError as exc:

@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import (
@@ -18,22 +19,37 @@ def validate_steps(steps: list[StepCreate]) -> None:
     if not steps:
         raise EmptyWorkflowError()
 
-    positions = [step.position for step in steps]
-    expected_positions = list(range(1, len(steps) + 1))
+    positions = [
+        step.position
+        for step in steps
+    ]
+
+    expected_positions = list(
+        range(
+            1,
+            len(steps) + 1,
+        )
+    )
 
     if sorted(positions) != expected_positions:
-        raise InvalidStepOrder(positions)
+        raise InvalidStepOrder(
+            positions
+        )
 
     unsupported_step_types = sorted(
         {
             step.step_type
             for step in steps
-            if not is_step_registered(step.step_type)
+            if not is_step_registered(
+                step.step_type
+            )
         }
     )
 
     if unsupported_step_types:
-        raise UnsupportedStepType(unsupported_step_types)
+        raise UnsupportedStepType(
+            unsupported_step_types
+        )
 
 
 def create_workflow_definition(
@@ -41,12 +57,31 @@ def create_workflow_definition(
     project_id: UUID,
     payload: WorkflowCreate,
 ) -> Workflow:
-    validate_steps(payload.steps)
+    validate_steps(
+        payload.steps
+    )
 
-    project = db.get(Project, project_id)
+    project = db.get(
+        Project,
+        project_id,
+    )
 
     if project is None:
-        raise ValueError("Project not found")
+        raise ValueError(
+            "Project not found"
+        )
+
+    existing_workflow = db.scalar(
+        select(Workflow).where(
+            Workflow.project_id
+            == project.id,
+            Workflow.name
+            == payload.name,
+        )
+    )
+
+    if existing_workflow is not None:
+        return existing_workflow
 
     try:
         workflow = Workflow(
@@ -54,7 +89,10 @@ def create_workflow_definition(
             name=payload.name,
         )
 
-        db.add(workflow)
+        db.add(
+            workflow
+        )
+
         db.flush()
 
         ordered_steps = sorted(
@@ -72,9 +110,15 @@ def create_workflow_definition(
             for step in ordered_steps
         ]
 
-        db.add_all(workflow_steps)
+        db.add_all(
+            workflow_steps
+        )
+
         db.commit()
-        db.refresh(workflow)
+
+        db.refresh(
+            workflow
+        )
 
         return workflow
 

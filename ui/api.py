@@ -141,6 +141,92 @@ class FlowPilotClient:
 
         return access_token
 
+
+
+    def get_projects(self) -> list[dict[str, Any]]:
+        result = self.request(
+            "GET",
+            "/api/v1/projects",
+        )
+
+        if not isinstance(result, list):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        projects = []
+
+        for project in result:
+            if not isinstance(project, dict):
+                raise ApiError(
+                    502,
+                    "FlowPilot API returned an invalid response",
+                )
+
+            project_id = project.get("id")
+            name = project.get("name")
+
+            if (
+                not isinstance(project_id, str)
+                or not isinstance(name, str)
+            ):
+                raise ApiError(
+                    502,
+                    "FlowPilot API returned an invalid response",
+                )
+
+            projects.append(project)
+
+        return projects
+
+
+
+    def create_workflow(
+        self,
+        *,
+        project_id: str,
+        name: str,
+        description: str,
+        template: str,
+    ) -> dict[str, Any]:
+        result = self.request(
+            "POST",
+            f"/api/v1/projects/{project_id}/workflows",
+            json={
+                "name": name,
+                "description": description,
+                "template": template,
+            },
+        )
+
+        if not isinstance(result, dict):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        return result
+
+
+    def list_workflows(
+        self,
+        *,
+        project_id: str,
+    ) -> list[dict[str, Any]]:
+        result = self.request(
+            "GET",
+            f"/api/v1/projects/{project_id}/workflows",
+        )
+
+        if not isinstance(result, list):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        return result
+
     def close(self) -> None:
         self.http.close()
 

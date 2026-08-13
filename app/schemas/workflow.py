@@ -35,12 +35,28 @@ class RequireKeyStepCreate(BaseModel):
     step_type: Literal["require_key"]
     config: RequireKeyConfig
 
+class ClassifyEmailConfig(BaseModel):
+    input_key: str = Field(
+        default="email_text",
+        min_length=1,
+    )
+    output_key: str = Field(
+        default="decision",
+        min_length=1,
+    )
+
+class ClassifyEmailStepCreate(BaseModel):
+    position: int = Field(ge=1)
+    step_type: Literal["classify_email"]
+    config: ClassifyEmailConfig
+
 
 # Pydantic reads step_type and chooses the correct step schema.
 StepCreate = Annotated[
     SetValueStepCreate
     | UppercaseStepCreate
-    | RequireKeyStepCreate,
+    | RequireKeyStepCreate
+    | ClassifyEmailStepCreate,
     Field(discriminator="step_type"),
 ]
 
@@ -88,3 +104,39 @@ class WorkflowRead(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+class WorkflowTemplateCreate(BaseModel):
+    name: str = Field(
+        min_length=1,
+        max_length=255,
+    )
+
+    description: str = Field(
+        default="",
+        max_length=500,
+    )
+
+    template: Literal[
+        "customer_reply_v1",
+        "email_triage_v1",
+    ]
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        cleaned_name = value.strip()
+
+        if not cleaned_name:
+            raise ValueError(
+                "Workflow name cannot be empty"
+            )
+
+        return cleaned_name
+
+    @field_validator("description")
+    @classmethod
+    def normalize_description(
+        cls,
+        value: str,
+    ) -> str:
+        return value.strip()

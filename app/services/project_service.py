@@ -35,6 +35,31 @@ def get_all(db: Session) -> list[Project]:
     return list(projects)
 
 
+
+def get_workflows(
+    db: Session,
+    project_id: UUID,
+) -> list[Workflow]:
+    project = db.get(Project, project_id)
+
+    if project is None:
+        raise ValueError("Project not found")
+
+    statement = (
+        select(Workflow)
+        .where(
+            Workflow.project_id == project.id
+        )
+        .order_by(
+            Workflow.created_at.desc()
+        )
+    )
+
+    workflows = db.scalars(statement).all()
+
+    return list(workflows)
+
+
 def create_execution(
     db: Session,
     project_id: UUID,
