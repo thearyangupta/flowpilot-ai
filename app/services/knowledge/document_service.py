@@ -21,6 +21,36 @@ def get_by_checksum(
     return db.scalar(statement)
 
 
+def list_for_user(
+    db: Session,
+    user_id: UUID,
+) -> list[KnowledgeDocument]:
+    statement = (
+        select(KnowledgeDocument)
+        .where(
+            KnowledgeDocument.user_id == user_id
+        )
+        .order_by(
+            KnowledgeDocument.created_at.desc()
+        )
+    )
+
+    return list(db.scalars(statement).all())
+
+
+def get_for_user(
+    db: Session,
+    user_id: UUID,
+    document_id: UUID,
+) -> KnowledgeDocument | None:
+    statement = select(KnowledgeDocument).where(
+        KnowledgeDocument.id == document_id,
+        KnowledgeDocument.user_id == user_id,
+    )
+
+    return db.scalar(statement)
+
+
 def create_document(
     db: Session,
     user_id: UUID,

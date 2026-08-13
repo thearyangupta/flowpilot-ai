@@ -227,6 +227,129 @@ class FlowPilotClient:
 
         return result
 
+
+
+    def upload_knowledge_document(
+        self,
+    *   ,
+        filename: str,
+        content: bytes,
+        content_type: str,
+    ) -> dict[str, Any]:
+        result = self.request(
+            "POST",
+            "/api/v1/knowledge/documents",
+            files={
+                "file": (
+                    filename,
+                    content,
+                    content_type,
+                ),
+            },
+        )
+
+        if not isinstance(result, dict):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        document_id = result.get("id")
+        name = result.get("name")
+        document_status = result.get("status")
+
+        if (
+            not isinstance(document_id, str)
+            or not isinstance(name, str)
+            or not isinstance(document_status, str)
+        ):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        return result
+    def list_knowledge_documents(
+        self,
+    ) -> list[dict[str, Any]]:
+        result = self.request(
+            "GET",
+            "/api/v1/knowledge/documents",
+        )
+
+        if not isinstance(result, list):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        documents: list[dict[str, Any]] = []
+
+        for document in result:
+            if not isinstance(document, dict):
+                raise ApiError(
+                    502,
+                    "FlowPilot API returned an invalid response",
+                )
+
+            if not isinstance(document.get("id"), str):
+                raise ApiError(
+                    502,
+                    "FlowPilot API returned an invalid response",
+                )
+
+            if not isinstance(document.get("name"), str):
+                raise ApiError(
+                    502,
+                    "FlowPilot API returned an invalid response",
+                )
+
+            if not isinstance(document.get("status"), str):
+                raise ApiError(
+                    502,
+                    "FlowPilot API returned an invalid response",
+                )
+
+            documents.append(document)
+
+        return documents
+
+
+    def get_knowledge_document(
+        self,
+        *,
+        document_id: str,
+    ) -> dict[str, Any]:
+        result = self.request(
+            "GET",
+            f"/api/v1/knowledge/documents/{document_id}",
+        )
+
+        if not isinstance(result, dict):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        if not isinstance(result.get("id"), str):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        if not isinstance(result.get("name"), str):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        if not isinstance(result.get("status"), str):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        return result
     def close(self) -> None:
         self.http.close()
 
