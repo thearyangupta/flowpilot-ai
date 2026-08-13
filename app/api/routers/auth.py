@@ -1,3 +1,7 @@
+from urllib.parse import urlencode
+from fastapi.responses import RedirectResponse
+from app.core.config import get_settings
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -7,6 +11,7 @@ from app.core.oauth import (
     GOOGLE_IDENTITY_SCOPES,
     OAuthPurpose,
 )
+from app.core.security import create_access_token
 from app.db.session import get_db
 from app.schemas.auth import (
     GoogleOAuthCallbackRead,
@@ -22,7 +27,15 @@ from app.services.auth.oauth_start_service import (
 )
 from app.api.dependencies import get_current_user
 from app.models.user import User
+from app.schemas.auth import AccessTokenRead,LoginCodeExchangeCreate
 
+
+from app.services.auth.login_code_service import (
+    LoginCodeAlreadyConsumedError,
+    LoginCodeExpiredError,
+    LoginCodeNotFoundError,
+    consume_login_code,
+)
 
 router = APIRouter()
 
@@ -102,7 +115,6 @@ def connect_gmail(
 
 @router.get(
     "/auth/google/callback",
-    response_model=GoogleOAuthCallbackRead,
     tags=["authentication"],
 )
 def finish_google_oauth(
@@ -113,7 +125,7 @@ def finish_google_oauth(
     ),
     error: str | None = None,
     db: Session = Depends(get_db),
-) -> GoogleOAuthCallbackRead:
+):
     if error is not None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -139,11 +151,28 @@ def finish_google_oauth(
         db.commit()
 
         if result.purpose == OAuthPurpose.LOGIN:
-            return GoogleOAuthCallbackRead(
-                status="authenticated",
-                access_token=result.flowpilot_access_token,
-                token_type="bearer",
-                user=result.user,
+            if not result.login_code:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Login code was not generated.",
+                )
+
+            settings = get_settings()
+
+            query = urlencode(
+                {
+                    "login_code": result.login_code,
+                }
+            )
+
+            redirect_url = (
+                f"{settings.streamlit_app_url.rstrip('/')}"
+                f"/?{query}"
+            )
+
+            return RedirectResponse(
+                url=redirect_url,
+                status_code=status.HTTP_302_FOUND,
             )
 
         return GoogleOAuthCallbackRead(
@@ -160,3 +189,40 @@ def finish_google_oauth(
                 "Google OAuth callback could not be completed."
             ),
         ) from callback_error
+
+@router.post(
+    "/auth/login-code/exchange",
+    response_model=AccessTokenRead,
+    tags=["authentication"],
+)
+def exchange_login_code(
+    payload: LoginCodeExchangeCreate,
+    db: Session = Depends(get_db),
+) -> AccessTokenRead:
+    try:
+        login_code = consume_login_code(
+            db,
+            code=payload.login_code,
+        )
+
+        access_token = create_access_token(
+            login_code.user_id
+        )
+
+        db.commit()
+
+        return AccessTokenRead(
+            access_token=access_token,
+        )
+
+    except (
+        LoginCodeNotFoundError,
+        LoginCodeExpiredError,
+        LoginCodeAlreadyConsumedError,
+    ) as error:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Login code is invalid or expired.",
+        ) from error

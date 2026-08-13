@@ -9,7 +9,7 @@ from app.core.oauth import (
     OAuthPurpose,
     hash_oauth_state,
 )
-from app.core.security import create_access_token
+from app.services.auth.login_code_service import issue_login_code
 from app.models.user import User
 from app.services.google.google_identity_service import (
     GoogleIdentity,
@@ -60,7 +60,7 @@ class OAuthCallbackResult:
     purpose: OAuthPurpose
     user: User
     google_token_data: GoogleTokenData
-    flowpilot_access_token: str | None = None
+    login_code: str | None = None
 
 
 def complete_google_oauth_callback(
@@ -171,15 +171,16 @@ def _complete_login_callback(
         cipher=cipher,
     )
 
-    flowpilot_access_token = create_access_token(
-        user.id
+    login_code = issue_login_code(
+        db,
+        user_id=user.id,
     )
 
     return OAuthCallbackResult(
         purpose=OAuthPurpose.LOGIN,
         user=user,
         google_token_data=token_data,
-        flowpilot_access_token=flowpilot_access_token,
+        login_code=login_code.code,
     )
 
 

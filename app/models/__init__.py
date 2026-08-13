@@ -12,6 +12,7 @@ from app.models.reply_draft_audit_event import ReplyDraftAuditEvent
 from app.models.gmail_message import GmailMessage
 from app.models.knowledge_chunk import KnowledgeChunk
 from app.models.knowledge_document import KnowledgeDocument
+from app.models.login_code import LoginCode
 
 __all__ = [
     "Execution",
@@ -26,6 +27,7 @@ __all__ = [
     "ReplyDraft",
     "ReplyDraftAuditEvent",
     "GmailMessage",
-    "KnowledgeChunk"
-    "KnowledgeDocument"
+    "KnowledgeChunk",
+    "KnowledgeDocument",
+    "LoginCode",
 ]

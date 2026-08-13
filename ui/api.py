@@ -83,11 +83,71 @@ class FlowPilotClient:
 
         return response.json()
 
+    def google_login_url(self) -> str:
+        result = self.request(
+            "GET",
+            "/api/v1/auth/google/start",
+        )
+
+        if not isinstance(result, dict):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        authorization_url = result.get(
+            "authorization_url"
+        )
+
+        if (
+            not isinstance(authorization_url, str)
+            or not authorization_url
+        ):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        return authorization_url
+
+    def exchange_login_code(
+        self,
+        code: str,
+    ) -> str:
+        result = self.request(
+            "POST",
+            "/api/v1/auth/login-code/exchange",
+            json={
+                "login_code": code,
+            },
+        )
+
+        if not isinstance(result, dict):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        access_token = result.get("access_token")
+
+        if (
+            not isinstance(access_token, str)
+            or not access_token
+        ):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        return access_token
+
     def close(self) -> None:
         self.http.close()
 
 
-def _safe_error_message(response: httpx.Response) -> str:
+def _safe_error_message(
+    response: httpx.Response,
+) -> str:
     """Extract a user-safe error message from a FastAPI response."""
 
     try:

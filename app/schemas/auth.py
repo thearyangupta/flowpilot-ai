@@ -17,6 +17,14 @@ class GoogleOAuthCallbackRead(BaseModel):
         "gmail_connected",
     ]
 
-    access_token: str | None = None
-    token_type: str | None = None
+    login_code: str | None = None
     user: UserRead
+
+
+class LoginCodeExchangeCreate(BaseModel):
+    login_code: str
+
+
+class AccessTokenRead(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
