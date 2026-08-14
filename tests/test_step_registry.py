@@ -21,9 +21,11 @@ def test_builtin_steps_are_registered() -> None:
             "set_value",
             "uppercase",
             "require_key",
+            "prepare_email",
+            "classify_email",
+            "create_reply_draft",
         }
     )
-
 
 def test_registry_returns_correct_handler() -> None:
     handler = get_step_handler("uppercase")
