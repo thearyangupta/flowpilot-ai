@@ -1,12 +1,20 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.reply_draft import ReplyDraftRead
+from app.schemas.reply_draft import (
+    ReplyDraftRead,
+    ReplyDraftRejectCreate,
+)
 from app.services import reply_draft_service
 from app.services.reply_draft_service import (
     InvalidReplyDraftStateError,
@@ -17,13 +25,31 @@ from app.services.reply_draft_service import (
 router = APIRouter()
 
 
+@router.get(
+    "/reply-drafts",
+    response_model=list[ReplyDraftRead],
+)
+def list_pending_reply_drafts(
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+) -> list[ReplyDraftRead]:
+    return reply_draft_service.list_pending_for_user(
+        db=db,
+        user_id=current_user.id,
+    )
+
+
 @router.post(
     "/reply-drafts/{draft_id}/approve",
     response_model=ReplyDraftRead,
 )
 def approve_reply_draft(
     draft_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
     db: Session = Depends(get_db),
 ) -> ReplyDraftRead:
     try:
@@ -52,7 +78,10 @@ def approve_reply_draft(
 )
 def reject_reply_draft(
     draft_id: UUID,
-    current_user: User = Depends(get_current_user),
+    payload: ReplyDraftRejectCreate,
+    current_user: User = Depends(
+        get_current_user
+    ),
     db: Session = Depends(get_db),
 ) -> ReplyDraftRead:
     try:
@@ -60,6 +89,7 @@ def reject_reply_draft(
             db=db,
             draft_id=draft_id,
             user_id=current_user.id,
+            reason=payload.reason,
         )
 
     except ReplyDraftNotFoundError as error:

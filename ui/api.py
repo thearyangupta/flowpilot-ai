@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 from collections.abc import Callable
@@ -142,6 +142,33 @@ class FlowPilotClient:
         return access_token
 
 
+
+    def gmail_connect_url(self) -> str:
+        result = self.request(
+            "GET",
+            "/api/v1/integrations/gmail/connect",
+        )
+
+        if not isinstance(result, dict):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        authorization_url = result.get(
+            "authorization_url"
+        )
+
+        if (
+            not isinstance(authorization_url, str)
+            or not authorization_url
+        ):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        return authorization_url
 
     def get_projects(self) -> list[dict[str, Any]]:
         result = self.request(
@@ -441,6 +468,100 @@ class FlowPilotClient:
         step_runs = result.get("step_runs")
 
         if not isinstance(step_runs, list):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        return result
+
+
+    def list_pending_reply_drafts(
+        self,
+    ) -> list[dict[str, Any]]:
+        result = self.request(
+            "GET",
+            "/api/v1/reply-drafts",
+        )
+
+        if not isinstance(result, list):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        drafts: list[dict[str, Any]] = []
+
+        for draft in result:
+            if not isinstance(draft, dict):
+                raise ApiError(
+                    502,
+                    "FlowPilot API returned an invalid response",
+                )
+
+            if not isinstance(
+                draft.get("id"),
+                str,
+            ):
+                raise ApiError(
+                    502,
+                    "FlowPilot API returned an invalid response",
+                )
+
+            if not isinstance(
+                draft.get("status"),
+                str,
+            ):
+                raise ApiError(
+                    502,
+                    "FlowPilot API returned an invalid response",
+                )
+
+            drafts.append(draft)
+
+        return drafts
+
+
+    def approve_reply_draft(
+        self,
+        *,
+        draft_id: str,
+    ) -> dict[str, Any]:
+        result = self.request(
+            "POST",
+            (
+                f"/api/v1/reply-drafts/"
+                f"{draft_id}/approve"
+            ),
+        )
+
+        if not isinstance(result, dict):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        return result
+
+
+    def reject_reply_draft(
+        self,
+        *,
+        draft_id: str,
+        reason: str,
+    ) -> dict[str, Any]:
+        result = self.request(
+            "POST",
+            (
+                f"/api/v1/reply-drafts/"
+                f"{draft_id}/reject"
+            ),
+            json={
+                "reason": reason,
+            },
+        )
+
+        if not isinstance(result, dict):
             raise ApiError(
                 502,
                 "FlowPilot API returned an invalid response",

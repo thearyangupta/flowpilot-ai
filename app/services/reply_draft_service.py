@@ -93,6 +93,7 @@ def reject(
     *,
     draft_id: UUID,
     user_id: UUID,
+    reason: str,
 ) -> ReplyDraft:
     draft = require_owned_pending(
         db,
@@ -100,13 +101,22 @@ def reject(
         user_id=user_id,
     )
 
+    normalized_reason = reason.strip()
+
+    if not normalized_reason:
+        raise ValueError(
+            "A rejection reason is required."
+        )
+
     draft.status = ReplyDraftStatus.REJECTED
 
     create_reply_draft_audit_event(
         db=db,
         reply_draft_id=draft.id,
         event_type="rejected",
-        details={},
+        details={
+            "reason": normalized_reason,
+        },
         actor="user",
         actor_user_id=user_id,
     )
@@ -116,8 +126,6 @@ def reject(
     db.refresh(draft)
 
     return draft
-
-
 
 def get_for_update(
     db: Session,
@@ -224,3 +232,72 @@ def send_approved(
     db.refresh(draft)
 
     return draft
+
+
+def create_pending(
+    db: Session,
+    *,
+    user_id: UUID,
+    gmail_draft_id: str,
+    source_message: dict,
+    draft_message: dict,
+) -> ReplyDraft:
+    """
+    Canonical creation path for reply drafts that require
+    human approval.
+
+    All workflow/API creation paths should use this function
+    instead of constructing ReplyDraft directly.
+    """
+
+    draft = ReplyDraft(
+        user_id=user_id,
+        gmail_draft_id=gmail_draft_id,
+        status=ReplyDraftStatus.PENDING_APPROVAL,
+        source_message=source_message,
+        draft_message=draft_message,
+    )
+
+    db.add(draft)
+
+    # Flush first so draft.id exists before creating
+    # the related audit event.
+    db.flush()
+
+    create_reply_draft_audit_event(
+        db=db,
+        reply_draft_id=draft.id,
+        event_type="created",
+        details={
+            "status": ReplyDraftStatus.PENDING_APPROVAL.value,
+            "gmail_draft_id": gmail_draft_id,
+        },
+        actor="workflow_worker",
+        actor_user_id=user_id,
+    )
+
+    db.commit()
+    db.refresh(draft)
+
+    return draft
+
+
+def list_pending_for_user(
+    db: Session,
+    user_id: UUID,
+) -> list[ReplyDraft]:
+    statement = (
+        select(ReplyDraft)
+        .where(
+            ReplyDraft.user_id == user_id,
+            ReplyDraft.status
+            == ReplyDraftStatus.PENDING_APPROVAL,
+        )
+        .order_by(
+            ReplyDraft.created_at.desc()
+        )
+    )
+
+    return list(
+        db.scalars(statement).all()
+    )
