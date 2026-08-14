@@ -77,6 +77,11 @@ def keyword_candidates(
         query,
     )
 
+    search_vector = func.to_tsvector(
+        "english",
+        KnowledgeChunk.search_vector,
+    )
+
     rank = func.ts_rank_cd(
         KnowledgeChunk.search_vector,
         ts_query,
@@ -89,7 +94,7 @@ def keyword_candidates(
         )
         .where(
             KnowledgeChunk.user_id == user_id,
-            KnowledgeChunk.search_vector.op("@@")(
+            search_vector.op("@@")(
                 ts_query
             ),
         )
