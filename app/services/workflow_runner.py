@@ -138,6 +138,7 @@ def run(
                 db.refresh(step_run)
 
             except Exception as exc:
+                db.rollback()
                 step_run.status = StepRunStatus.FAILED
                 step_run.finished_at = datetime.now(timezone.utc)
                 step_run.error_type = type(exc).__name__
@@ -371,6 +372,7 @@ def resume(
                 db.refresh(step_run)
 
             except Exception as exc:
+                db.rollback()
                 step_run.status = StepRunStatus.FAILED
                 step_run.finished_at = datetime.now(timezone.utc)
                 step_run.error_type = type(exc).__name__

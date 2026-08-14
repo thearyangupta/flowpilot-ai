@@ -52,3 +52,59 @@ def require_key_handler(
         )
 
     return data.copy()
+
+
+def prepare_email_handler(
+    data: dict[str, Any],
+    config: dict[str, Any],
+) -> dict[str, Any]:
+    sender = str(
+        data.get("sender") or ""
+    ).strip()
+
+    subject = str(
+        data.get("subject") or ""
+    ).strip()
+
+    body_text = str(
+        data.get("body_text") or ""
+    ).strip()
+
+    provider_message_id = str(
+        data.get("provider_message_id") or ""
+    ).strip()
+
+    if not sender:
+        raise ValueError(
+            "Email sender is required"
+        )
+
+    if not body_text:
+        raise ValueError(
+            "Email body_text is required"
+        )
+
+    if not provider_message_id:
+        raise ValueError(
+            "Email provider_message_id is required"
+        )
+
+    result = data.copy()
+
+    result["email_text"] = "\n".join(
+        part
+        for part in (
+            subject,
+            body_text,
+        )
+        if part
+    )
+
+    result["source_message"] = {
+        "sender": sender,
+        "subject": subject,
+        "body_text": body_text,
+        "message_id": provider_message_id,
+    }
+
+    return result

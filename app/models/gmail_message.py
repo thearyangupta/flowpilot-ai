@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime,timezone
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, String, Text, UniqueConstraint
@@ -64,4 +64,5 @@ class GmailMessage(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-    )
+        default=lambda: datetime.now(timezone.utc),
+)

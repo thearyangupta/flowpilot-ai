@@ -62,6 +62,7 @@ def render_sign_in(api: FlowPilotClient) -> None:
 
     try:
         authorization_url = api.google_login_url()
+
     except ApiError as error:
         st.error(error.message)
         st.stop()
@@ -81,16 +82,33 @@ api = get_api()
 
 complete_login(api)
 
-if not st.session_state.get(AUTH_ACCESS_TOKEN_KEY):
+if not st.session_state.get(
+    AUTH_ACCESS_TOKEN_KEY
+):
     render_sign_in(api)
 
 
 with st.sidebar:
     st.caption("FlowPilot AI")
 
+    try:
+        gmail_authorization_url = (
+            api.gmail_connect_url()
+        )
+
+        st.link_button(
+            "Connect Gmail",
+            gmail_authorization_url,
+            use_container_width=True,
+        )
+
+    except ApiError as error:
+        st.error(error.message)
+
     if st.button(
         "Logout",
         key="auth.logout",
+        use_container_width=True,
     ):
         clear_session_state()
         st.rerun()

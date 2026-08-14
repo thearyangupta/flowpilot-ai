@@ -1,17 +1,25 @@
 from uuid import UUID
-from app.models.enums import ExecutionStatus
-from app.db.session import SessionLocal
-from app.models.execution import Execution
-from app.services.execution.execution_event_service import create_execution_event
-from app.services.workflow_runner import run,resume
-from app.worker.celery_app import celery_app
-from app.core.exceptions import RetryableExecutionError
+import random
+from app.models.oauth_connection import OAuthConnection
 from sqlalchemy import select
 
+from app.ai.decision_service import DecisionService
+from app.ai.providers.gemini import (
+    GeminiDecisionProvider,
+    GeminiGroundedReplyProvider,
+)
 from app.ai.providers.gemini_embeddings import GeminiEmbedder
 from app.core.config import get_settings
+from app.core.exceptions import RetryableExecutionError
+from app.db.session import SessionLocal
+from app.domain.step_registry import build_step_registry
+from app.models.enums import ExecutionStatus
+from app.models.execution import Execution
 from app.models.knowledge_chunk import KnowledgeChunk
 from app.models.knowledge_document import KnowledgeDocument
+from app.services.execution.execution_event_service import (
+    create_execution_event,
+)
 from app.services.knowledge.batching import batched
 from app.services.knowledge.document_service import (
     mark_failed,
@@ -27,12 +35,38 @@ from app.services.knowledge.embedding_validation import (
 from app.services.knowledge.embedding_version import (
     embedding_key,
 )
-from app.ai.decision_service import DecisionService
-from app.ai.providers.gemini import GeminiDecisionProvider
-from app.domain.step_registry import build_step_registry
-import random
+from app.services.workflow_runner import run, resume
+from app.worker.celery_app import celery_app
 
-def build_worker_step_registry():
+
+def resolve_workflow_user_id(
+    *,
+    db,
+    workflow_id: UUID,
+) -> UUID:
+    user_id = db.scalar(
+        select(OAuthConnection.user_id)
+        .where(
+            OAuthConnection.workflow_id == workflow_id,
+            OAuthConnection.provider == "google",
+        )
+        .limit(1)
+    )
+
+    if user_id is None:
+        raise ValueError(
+            "No Google OAuth connection is linked "
+            f"to workflow '{workflow_id}'."
+        )
+
+    return user_id
+
+
+def build_worker_step_registry(
+    *,
+    db,
+    user_id: UUID,
+):
     settings = get_settings()
 
     decision_provider = GeminiDecisionProvider(
@@ -43,9 +77,24 @@ def build_worker_step_registry():
         decision_provider
     )
 
-    return build_step_registry(
-        decision_service
+    embedder = GeminiEmbedder(
+        settings
     )
+
+    grounded_reply_provider = (
+        GeminiGroundedReplyProvider(
+            settings
+        )
+    )
+
+    return build_step_registry(
+        decision_service=decision_service,
+        db=db,
+        user_id=user_id,
+        embedder=embedder,
+        grounded_reply_provider=grounded_reply_provider,
+    )
+
 
 @celery_app.task(
     bind=True,
@@ -69,8 +118,17 @@ def run_execution_task(
 
         if execution is None:
             return
-        
-        step_registry = build_worker_step_registry()
+
+        user_id = resolve_workflow_user_id(
+            db=db,
+            workflow_id=execution.workflow_id,
+        )
+
+        step_registry = build_worker_step_registry(
+            db=db,
+            user_id=user_id,
+        )
+
         create_execution_event(
             db=db,
             execution_id=execution.id,
@@ -87,7 +145,9 @@ def run_execution_task(
             run(
                 db=db,
                 execution=execution,
-                initial_context=dict(execution.input_data or {}),
+                initial_context=dict(
+                    execution.input_data or {}
+                ),
                 step_registry=step_registry,
             )
         else:
@@ -98,18 +158,19 @@ def run_execution_task(
             )
 
     except RetryableExecutionError as exc:
-
         db.rollback()
 
         retry_count = self.request.retries
-        countdown = (2 ** retry_count) + random.uniform(0, 1)
-        
+        countdown = (
+            2 ** retry_count
+        ) + random.uniform(0, 1)
+
         raise self.retry(
             exc=exc,
             countdown=countdown,
             max_retries=5,
-            )
-    
+        )
+
     except Exception:
         db.rollback()
         raise
@@ -151,7 +212,9 @@ def embed_document_task(
                     KnowledgeChunk.document_id
                     == document.id
                 )
-                .order_by(KnowledgeChunk.ordinal)
+                .order_by(
+                    KnowledgeChunk.ordinal
+                )
             )
         )
 
@@ -198,9 +261,11 @@ def embed_document_task(
                 chunk.embedding_model = (
                     embedder.model_name
                 )
-                chunk.embedding_key = embedding_key(
-                    chunk,
-                    embedder,
+                chunk.embedding_key = (
+                    embedding_key(
+                        chunk,
+                        embedder,
+                    )
                 )
 
             db.commit()
@@ -210,7 +275,9 @@ def embed_document_task(
             .where(
                 KnowledgeChunk.document_id
                 == document.id,
-                KnowledgeChunk.embedding.is_(None),
+                KnowledgeChunk.embedding.is_(
+                    None
+                ),
             )
             .limit(1)
         )
@@ -232,6 +299,7 @@ def embed_document_task(
         db.rollback()
 
         retry_count = self.request.retries
+
         countdown = (
             2 ** retry_count
         ) + random.uniform(0, 1)
@@ -255,6 +323,7 @@ def embed_document_task(
                 db=db,
                 document=document,
             )
+
             db.commit()
 
         raise
