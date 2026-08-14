@@ -27,10 +27,8 @@ st.title("Workflows")
 
 api = page_api()
 
-
-# -------------------------
 # Projects
-# -------------------------
+
 
 try:
     projects = api.get_projects()
@@ -53,10 +51,7 @@ project_options = {
     for project in projects
 }
 
-
-# -------------------------
 # Create workflow
-# -------------------------
 
 with st.form(
     "workflow.create",
@@ -125,10 +120,7 @@ if submitted:
             )
             st.rerun()
 
-
-# -------------------------
 # Existing workflows
-# -------------------------
 
 st.subheader(
     "Existing workflows"

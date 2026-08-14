@@ -350,6 +350,103 @@ class FlowPilotClient:
             )
 
         return result
+
+    def list_executions(
+        self,
+        *,
+        project_id: str,
+        workflow_id: str,
+        execution_status: str | None = None,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, str] = {}
+
+        if execution_status:
+            params["execution_status"] = execution_status
+
+        result = self.request(
+            "GET",
+            (
+                f"/api/v1/projects/{project_id}"
+                f"/workflows/{workflow_id}/executions"
+            ),
+            params=params,
+        )
+
+        if not isinstance(result, list):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        executions: list[dict[str, Any]] = []
+
+        for execution in result:
+            if not isinstance(execution, dict):
+                raise ApiError(
+                    502,
+                    "FlowPilot API returned an invalid response",
+                )
+
+            if not isinstance(execution.get("id"), str):
+                raise ApiError(
+                    502,
+                    "FlowPilot API returned an invalid response",
+                )
+
+            if not isinstance(
+                execution.get("workflow_id"),
+                str,
+            ):
+                raise ApiError(
+                    502,
+                    "FlowPilot API returned an invalid response",
+                )
+
+            if not isinstance(
+                execution.get("status"),
+                str,
+            ):
+                raise ApiError(
+                    502,
+                    "FlowPilot API returned an invalid response",
+                )
+
+            executions.append(execution)
+
+        return executions
+
+
+    def get_execution_detail(
+        self,
+        *,
+        execution_id: str,
+    ) -> dict[str, Any]:
+        result = self.request(
+            "GET",
+            f"/api/v1/executions/{execution_id}",
+        )
+
+        if not isinstance(result, dict):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        if not isinstance(result.get("id"), str):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        step_runs = result.get("step_runs")
+
+        if not isinstance(step_runs, list):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        return result
     def close(self) -> None:
         self.http.close()
 

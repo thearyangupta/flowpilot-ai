@@ -11,6 +11,14 @@ class ExecutionCreate(BaseModel):
     input_data: dict[str, Any]
     idempotency_key : str
 
+class WorkflowStepTraceRead(BaseModel):
+    position: int
+    step_type: str
+
+    model_config = {
+        "from_attributes": True
+    }
+
 
 class StepRunRead(BaseModel):
     id: UUID
@@ -26,6 +34,8 @@ class StepRunRead(BaseModel):
 
     input_data: dict[str, Any] | None
     output_data: dict[str, Any] | None
+
+    workflow_step: WorkflowStepTraceRead
 
     model_config = {
         "from_attributes": True
