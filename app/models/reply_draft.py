@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -11,8 +11,8 @@ from app.db.mixins import TimestampMixin
 from app.models.enums import ReplyDraftStatus
 
 if TYPE_CHECKING:
-    from app.models.user import User
     from app.models.reply_draft_audit_event import ReplyDraftAuditEvent
+    from app.models.user import User
 
 
 class ReplyDraft(TimestampMixin, Base):
@@ -43,6 +43,13 @@ class ReplyDraft(TimestampMixin, Base):
         default=ReplyDraftStatus.PENDING_APPROVAL,
     )
 
+    current_revision_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default="1",
+    )
+
     approved_by: Mapped[UUID | None] = mapped_column(
         ForeignKey(
             "users.id",
@@ -62,6 +69,8 @@ class ReplyDraft(TimestampMixin, Base):
         default=dict,
     )
 
+    # Compatibility/current snapshot.
+    # Exact approval authority lives on ReplyDraftRevision.
     draft_message: Mapped[dict] = mapped_column(
         JSONB,
         nullable=False,
@@ -79,8 +88,9 @@ class ReplyDraft(TimestampMixin, Base):
     gmail_message_id: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
-)
+    )
+
     audit_events: Mapped[list["ReplyDraftAuditEvent"]] = relationship(
         back_populates="reply_draft",
         cascade="all, delete-orphan",
-)
+    )
