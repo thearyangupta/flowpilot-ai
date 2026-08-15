@@ -80,8 +80,51 @@ def get_execution_events(
             ExecutionEvent.execution_id == execution_id
         )
         .order_by(
-            ExecutionEvent.created_at.asc(),
-            ExecutionEvent.id.asc(),
+            ExecutionEvent.sequence_number.asc(),
+        )
+    )
+
+    events = db.scalars(statement).all()
+
+    return list(events)
+
+def get_execution_events_for_user(
+    db: Session,
+    execution_id: UUID,
+    user_id: UUID,
+) -> list[ExecutionEvent]:
+    from app.models.project import Project
+    from app.models.workflow import Workflow
+
+    execution = db.scalar(
+        select(Execution)
+        .join(
+            Workflow,
+            Execution.workflow_id == Workflow.id,
+        )
+        .join(
+            Project,
+            Workflow.project_id == Project.id,
+        )
+        .where(
+            Execution.id == execution_id,
+            Project.user_id == user_id,
+        )
+    )
+
+    if execution is None:
+        raise ValueError(
+            "Execution not found"
+        )
+
+    statement = (
+        select(ExecutionEvent)
+        .where(
+            ExecutionEvent.execution_id
+            == execution.id
+        )
+        .order_by(
+            ExecutionEvent.sequence_number.asc(),
         )
     )
 

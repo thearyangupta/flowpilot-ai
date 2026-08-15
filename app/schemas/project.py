@@ -1,10 +1,18 @@
-from datetime import datetime
+﻿from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    field_validator,
+)
+
+from app.schemas.base import StrictRequestModel
 
 
-class ProjectCreate(BaseModel):
+class ProjectCreate(
+    StrictRequestModel
+):
     name: str = Field(
         min_length=1,
         max_length=255,
@@ -12,11 +20,16 @@ class ProjectCreate(BaseModel):
 
     @field_validator("name")
     @classmethod
-    def validate_name(cls, value: str) -> str:
+    def validate_name(
+        cls,
+        value: str,
+    ) -> str:
         cleaned_name = value.strip()
 
         if not cleaned_name:
-            raise ValueError("Project name cannot be empty")
+            raise ValueError(
+                "Project name cannot be empty"
+            )
 
         return cleaned_name
 
@@ -32,5 +45,5 @@ class ProjectRead(BaseModel):
     updated_at: datetime
 
     model_config = {
-        "from_attributes": True
+        "from_attributes": True,
     }

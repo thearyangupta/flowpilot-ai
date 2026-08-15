@@ -1,4 +1,4 @@
-from uuid import UUID
+﻿from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -12,10 +12,15 @@ from app.domain.step_registry import is_step_registered
 from app.models.project import Project
 from app.models.workflow import Workflow
 from app.models.workflow_step import WorkflowStep
-from app.schemas.workflow import StepCreate, WorkflowCreate
+from app.schemas.workflow import (
+    StepCreate,
+    WorkflowCreate,
+)
 
 
-def validate_steps(steps: list[StepCreate]) -> None:
+def validate_steps(
+    steps: list[StepCreate],
+) -> None:
     if not steps:
         raise EmptyWorkflowError()
 
@@ -55,15 +60,18 @@ def validate_steps(steps: list[StepCreate]) -> None:
 def create_workflow_definition(
     db: Session,
     project_id: UUID,
+    user_id: UUID,
     payload: WorkflowCreate,
 ) -> Workflow:
     validate_steps(
         payload.steps
     )
 
-    project = db.get(
-        Project,
-        project_id,
+    project = db.scalar(
+        select(Project).where(
+            Project.id == project_id,
+            Project.user_id == user_id,
+        )
     )
 
     if project is None:
@@ -73,10 +81,8 @@ def create_workflow_definition(
 
     existing_workflow = db.scalar(
         select(Workflow).where(
-            Workflow.project_id
-            == project.id,
-            Workflow.name
-            == payload.name,
+            Workflow.project_id == project.id,
+            Workflow.name == payload.name,
         )
     )
 
@@ -89,10 +95,7 @@ def create_workflow_definition(
             name=payload.name,
         )
 
-        db.add(
-            workflow
-        )
-
+        db.add(workflow)
         db.flush()
 
         ordered_steps = sorted(
@@ -115,10 +118,7 @@ def create_workflow_definition(
         )
 
         db.commit()
-
-        db.refresh(
-            workflow
-        )
+        db.refresh(workflow)
 
         return workflow
 

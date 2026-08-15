@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+﻿from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from sqlalchemy import String
@@ -9,6 +9,7 @@ from app.db.mixins import TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.oauth_connection import OAuthConnection
+    from app.models.project import Project
 
 
 class User(TimestampMixin, Base):
@@ -36,6 +37,11 @@ class User(TimestampMixin, Base):
     )
 
     oauth_connections: Mapped[list["OAuthConnection"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+    projects: Mapped[list["Project"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )

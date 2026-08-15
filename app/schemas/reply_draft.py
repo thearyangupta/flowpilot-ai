@@ -1,10 +1,16 @@
+import json
 from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import (
+    BaseModel,
+    Field,
+    field_validator,
+)
 
 from app.models.enums import ReplyDraftStatus
+from app.schemas.base import StrictRequestModel
 
 
 class ReplyDraftRead(BaseModel):
@@ -28,13 +34,20 @@ class ReplyDraftRead(BaseModel):
     }
 
 
-class ReplyDraftDecisionCreate(BaseModel):
+MAX_REPLY_DRAFT_CONTENT_BYTES = 256 * 1024
+
+
+class ReplyDraftDecisionCreate(
+    StrictRequestModel
+):
     expected_revision: int = Field(
         ge=1,
     )
 
 
-class ReplyDraftRejectCreate(BaseModel):
+class ReplyDraftRejectCreate(
+    StrictRequestModel
+):
     expected_revision: int = Field(
         ge=1,
     )
@@ -45,15 +58,49 @@ class ReplyDraftRejectCreate(BaseModel):
     )
 
 
-class ReplyDraftEditCreate(BaseModel):
+class ReplyDraftEditCreate(
+    StrictRequestModel
+):
     expected_revision: int = Field(
         ge=1,
     )
 
     content: dict[str, Any]
 
+    @field_validator("content")
+    @classmethod
+    def validate_content_size(
+        cls,
+        value: dict[str, Any],
+    ) -> dict[str, Any]:
+        try:
+            encoded = json.dumps(
+                value,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
 
-class ReplyDraftSendCreate(BaseModel):
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                "Reply draft content must be "
+                "JSON serializable."
+            ) from error
+
+        if (
+            len(encoded)
+            > MAX_REPLY_DRAFT_CONTENT_BYTES
+        ):
+            raise ValueError(
+                "Reply draft content exceeds "
+                "the 256 KiB limit."
+            )
+
+        return value
+
+
+class ReplyDraftSendCreate(
+    StrictRequestModel
+):
     expected_revision: int = Field(
         ge=1,
     )

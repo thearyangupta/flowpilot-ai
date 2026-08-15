@@ -321,6 +321,12 @@ def test_stale_http_approval_returns_409(
 
     detail = response.json()["detail"]
 
-    assert "revision 1" in detail
-    assert "revision 2" in detail
+    assert detail == (
+        "Reply draft changed since you loaded it. "
+        "Refresh and review the latest revision "
+        "before continuing."
+    )
+
+    assert "revision 1" not in detail
+    assert "revision 2" not in detail
     assert "Refresh" in detail

@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.main import app
 
 from app.models.project import Project
+from app.models.user import User
 from app.models.workflow import Workflow
 from app.models.workflow_step import WorkflowStep
 
@@ -65,7 +66,16 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
 
 @pytest.fixture
 def workflow(db_session: Session) -> Workflow:
+    user = User(
+        email="workflow-fixture@example.com",
+        display_name="Workflow Fixture",
+    )
+
+    db_session.add(user)
+    db_session.flush()
+
     project = Project(
+        user_id=user.id,
         name="Test Project",
     )
 

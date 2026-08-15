@@ -10,6 +10,11 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
+from app.core.public_errors import (
+    REPLY_DRAFT_INVALID_STATE,
+    REPLY_DRAFT_NOT_FOUND,
+    REPLY_DRAFT_STALE,
+)
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.reply_draft import (
@@ -35,9 +40,21 @@ router = APIRouter()
 def raise_conflict(
     error: Exception,
 ) -> None:
+    if isinstance(
+        error,
+        StaleReplyDraftRevisionError,
+    ):
+        public_message = (
+            REPLY_DRAFT_STALE
+        )
+    else:
+        public_message = (
+            REPLY_DRAFT_INVALID_STATE
+        )
+
     raise HTTPException(
         status_code=status.HTTP_409_CONFLICT,
-        detail=str(error),
+        detail=public_message,
     ) from error
 
 
@@ -83,7 +100,7 @@ def get_reply_draft_approval_bundle(
     except ReplyDraftNotFoundError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
+            detail=REPLY_DRAFT_NOT_FOUND,
         ) from error
 
 
@@ -113,7 +130,7 @@ def edit_reply_draft(
     except ReplyDraftNotFoundError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
+            detail=REPLY_DRAFT_NOT_FOUND,
         ) from error
 
     except (
@@ -146,7 +163,7 @@ def approve_reply_draft(
     except ReplyDraftNotFoundError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
+            detail=REPLY_DRAFT_NOT_FOUND,
         ) from error
 
     except (
@@ -180,7 +197,7 @@ def reject_reply_draft(
     except ReplyDraftNotFoundError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
+            detail=REPLY_DRAFT_NOT_FOUND,
         ) from error
 
     except (
@@ -213,7 +230,7 @@ def send_reply_draft(
     except ReplyDraftNotFoundError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(error),
+            detail=REPLY_DRAFT_NOT_FOUND,
         ) from error
 
     except (

@@ -154,7 +154,7 @@ async def upload_document(
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(error),
+            detail=error.public_message,
         ) from error
 
     except DocumentExtractionError as error:

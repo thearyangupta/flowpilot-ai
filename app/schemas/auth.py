@@ -1,8 +1,9 @@
-from datetime import datetime
+﻿from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from app.schemas.base import StrictRequestModel
 from app.schemas.user import UserRead
 
 
@@ -21,8 +22,13 @@ class GoogleOAuthCallbackRead(BaseModel):
     user: UserRead
 
 
-class LoginCodeExchangeCreate(BaseModel):
-    login_code: str
+class LoginCodeExchangeCreate(
+    StrictRequestModel
+):
+    login_code: str = Field(
+        min_length=1,
+        max_length=512,
+    )
 
 
 class AccessTokenRead(BaseModel):

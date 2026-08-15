@@ -1,8 +1,9 @@
-from sqlalchemy.orm import Session
+﻿from sqlalchemy.orm import Session
 
 from app.models.enums import ExecutionStatus
 from app.models.execution import Execution
 from app.models.project import Project
+from app.models.user import User
 from app.models.workflow import Workflow
 from app.models.workflow_step import WorkflowStep
 from app.schemas.execution import ExecutionCreate
@@ -13,9 +14,19 @@ def test_create_execution_queues_workflow_successfully(
     db_session: Session,
 ) -> None:
     # Arrange
+    user = User(
+        email="execution-service@example.com",
+        display_name="Execution Service Test",
+    )
+
+    db_session.add(user)
+    db_session.flush()
+
     project = Project(
+        user_id=user.id,
         name="Test Project",
     )
+
     db_session.add(project)
     db_session.commit()
     db_session.refresh(project)
@@ -24,6 +35,7 @@ def test_create_execution_queues_workflow_successfully(
         project_id=project.id,
         name="Test Workflow",
     )
+
     db_session.add(workflow)
     db_session.commit()
     db_session.refresh(workflow)
@@ -37,6 +49,7 @@ def test_create_execution_queues_workflow_successfully(
             "value": "Hello",
         },
     )
+
     db_session.add(step)
     db_session.commit()
     db_session.refresh(step)
@@ -46,6 +59,7 @@ def test_create_execution_queues_workflow_successfully(
         db=db_session,
         project_id=project.id,
         workflow_id=workflow.id,
+        user_id=user.id,
         payload=ExecutionCreate(
             idempotency_key="test-execution-001",
             input_data={},
@@ -56,7 +70,10 @@ def test_create_execution_queues_workflow_successfully(
     assert created is True
     assert execution.status == ExecutionStatus.QUEUED
     assert execution.workflow_id == workflow.id
-    assert execution.idempotency_key == "test-execution-001"
+    assert (
+        execution.idempotency_key
+        == "test-execution-001"
+    )
     assert execution.input_data == {}
 
     saved_execution = db_session.get(
@@ -67,5 +84,8 @@ def test_create_execution_queues_workflow_successfully(
     assert saved_execution is not None
     assert saved_execution.status == ExecutionStatus.QUEUED
     assert saved_execution.workflow_id == workflow.id
-    assert saved_execution.idempotency_key == "test-execution-001"
+    assert (
+        saved_execution.idempotency_key
+        == "test-execution-001"
+    )
     assert saved_execution.input_data == {}

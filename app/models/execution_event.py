@@ -1,9 +1,18 @@
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import (
+    BigInteger,
+    ForeignKey,
+    Sequence,
+    String,
+)
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
 from app.db.base import Base
 from app.db.mixins import TimestampMixin
@@ -12,12 +21,29 @@ if TYPE_CHECKING:
     from app.models.execution import Execution
 
 
+execution_event_sequence = Sequence(
+    "execution_event_sequence",
+    metadata=Base.metadata,
+)
+
+
 class ExecutionEvent(TimestampMixin, Base):
     __tablename__ = "execution_events"
 
     id: Mapped[UUID] = mapped_column(
         primary_key=True,
         default=uuid4,
+    )
+
+    sequence_number: Mapped[int] = mapped_column(
+        BigInteger,
+        execution_event_sequence,
+        server_default=(
+            execution_event_sequence.next_value()
+        ),
+        nullable=False,
+        unique=True,
+        index=True,
     )
 
     execution_id: Mapped[UUID] = mapped_column(
