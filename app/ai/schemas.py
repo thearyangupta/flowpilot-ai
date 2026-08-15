@@ -61,7 +61,6 @@ class EmailDraft(BaseModel):
 
 
 class GroundedReply(BaseModel):
-    model_config = ConfigDict(extra="forbid")
 
     subject: str = Field(
         min_length=1,

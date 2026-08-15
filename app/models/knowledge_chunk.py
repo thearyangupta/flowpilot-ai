@@ -10,7 +10,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from app.db.base import Base
 from app.db.mixins import TimestampMixin
 from pgvector.sqlalchemy import Vector
@@ -31,6 +31,11 @@ class KnowledgeChunk(TimestampMixin, Base):
             postgresql_ops={
                 "embedding": "vector_cosine_ops",
             },
+        ),
+        Index(
+            "ix_knowledge_chunks_search_vector_gin",
+            "search_vector",
+            postgresql_using="gin",
         ),
     )
 
@@ -94,6 +99,7 @@ class KnowledgeChunk(TimestampMixin, Base):
     )
 
     search_vector: Mapped[str | None] = mapped_column(
+        TSVECTOR,
         Computed(
             "to_tsvector('english', content)",
             persisted=True,
