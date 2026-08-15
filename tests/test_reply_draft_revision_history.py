@@ -81,6 +81,7 @@ def test_edit_creates_new_revision_and_preserves_old_content(
         db=db_session,
         draft_id=draft.id,
         user_id=user.id,
+        expected_revision=1,
         content=edited_content,
     )
 
@@ -129,6 +130,7 @@ def test_prior_approval_does_not_authorize_new_revision(
         db=db_session,
         draft_id=draft.id,
         user_id=user.id,
+        expected_revision=1,
     )
 
     revision_1 = db_session.execute(
@@ -152,6 +154,7 @@ def test_prior_approval_does_not_authorize_new_revision(
         db=db_session,
         draft_id=draft.id,
         user_id=user.id,
+        expected_revision=1,
         content={
             "subject": "Refund",
             "body": "Refund ?5,000.",
@@ -201,6 +204,7 @@ def test_approval_bundle_identifies_exact_revision_and_history(
         db=db_session,
         draft_id=draft.id,
         user_id=user.id,
+        expected_revision=1,
     )
 
     bundle = reply_draft_service.get_approval_bundle(
@@ -256,6 +260,7 @@ def test_another_user_cannot_read_revision_or_decision_history(
         db=db_session,
         draft_id=draft.id,
         user_id=owner.id,
+        expected_revision=1,
     )
 
     with pytest.raises(

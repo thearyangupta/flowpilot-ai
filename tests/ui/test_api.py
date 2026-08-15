@@ -151,6 +151,7 @@ def test_pending_drafts_are_returned() -> None:
                 {
                     "id": draft_id,
                     "status": "pending_approval",
+                    "current_revision_number": 3,
                     "gmail_draft_id": "gmail-1",
                     "source_message": {},
                     "draft_message": {},
@@ -171,12 +172,77 @@ def test_pending_drafts_are_returned() -> None:
             result[0]["status"]
             == "pending_approval"
         )
+        assert (
+            result[0]["current_revision_number"]
+            == 3
+        )
 
     finally:
         client.close()
 
 
-def test_approve_uses_exact_draft_id() -> None:
+def test_edit_sends_expected_revision_and_content() -> None:
+    draft_id = (
+        "25b13f9b-1d7f-49e6-b55d-"
+        "95b9e91f753f"
+    )
+
+    content = {
+        "recipient": "customer@example.com",
+        "subject": "Updated subject",
+        "body": "Updated body",
+    }
+
+    def handler(
+        request: httpx.Request,
+    ) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == (
+            f"/api/v1/reply-drafts/"
+            f"{draft_id}/revisions"
+        )
+
+        import json
+
+        payload = json.loads(
+            request.content.decode("utf-8")
+        )
+
+        assert payload == {
+            "expected_revision": 3,
+            "content": content,
+        }
+
+        return httpx.Response(
+            200,
+            json={
+                "id": (
+                    "4959014f-5d94-4725-a938-"
+                    "563711077adb"
+                ),
+                "reply_draft_id": draft_id,
+                "revision_number": 4,
+                "content": content,
+            },
+        )
+
+    client = make_client(handler)
+
+    try:
+        result = client.edit_reply_draft(
+            draft_id=draft_id,
+            expected_revision=3,
+            content=content,
+        )
+
+        assert result["revision_number"] == 4
+        assert result["content"] == content
+
+    finally:
+        client.close()
+
+
+def test_approve_sends_expected_revision_and_exact_id() -> None:
     draft_id = (
         "25b13f9b-1d7f-49e6-b55d-"
         "95b9e91f753f"
@@ -186,17 +252,27 @@ def test_approve_uses_exact_draft_id() -> None:
         request: httpx.Request,
     ) -> httpx.Response:
         assert request.method == "POST"
-
         assert request.url.path == (
             f"/api/v1/reply-drafts/"
             f"{draft_id}/approve"
         )
+
+        import json
+
+        payload = json.loads(
+            request.content.decode("utf-8")
+        )
+
+        assert payload == {
+            "expected_revision": 3,
+        }
 
         return httpx.Response(
             200,
             json={
                 "id": draft_id,
                 "status": "approved",
+                "current_revision_number": 3,
             },
         )
 
@@ -205,6 +281,7 @@ def test_approve_uses_exact_draft_id() -> None:
     try:
         result = client.approve_reply_draft(
             draft_id=draft_id,
+            expected_revision=3,
         )
 
         assert result["id"] == draft_id
@@ -214,7 +291,7 @@ def test_approve_uses_exact_draft_id() -> None:
         client.close()
 
 
-def test_reject_sends_reason_and_exact_id() -> None:
+def test_reject_sends_revision_reason_and_exact_id() -> None:
     draft_id = (
         "d6f9b0bf-7408-4317-bc89-"
         "0b294c7f090b"
@@ -224,13 +301,10 @@ def test_reject_sends_reason_and_exact_id() -> None:
         request: httpx.Request,
     ) -> httpx.Response:
         assert request.method == "POST"
-
         assert request.url.path == (
             f"/api/v1/reply-drafts/"
             f"{draft_id}/reject"
         )
-
-        assert request.read()
 
         import json
 
@@ -239,7 +313,8 @@ def test_reject_sends_reason_and_exact_id() -> None:
         )
 
         assert payload == {
-            "reason": "Incorrect answer"
+            "expected_revision": 7,
+            "reason": "Incorrect answer",
         }
 
         return httpx.Response(
@@ -247,6 +322,7 @@ def test_reject_sends_reason_and_exact_id() -> None:
             json={
                 "id": draft_id,
                 "status": "rejected",
+                "current_revision_number": 7,
             },
         )
 
@@ -255,10 +331,100 @@ def test_reject_sends_reason_and_exact_id() -> None:
     try:
         result = client.reject_reply_draft(
             draft_id=draft_id,
+            expected_revision=7,
             reason="Incorrect answer",
         )
 
         assert result["status"] == "rejected"
+
+    finally:
+        client.close()
+
+
+def test_send_sends_expected_revision_and_exact_id() -> None:
+    draft_id = (
+        "2378fd4f-350d-48cb-b673-"
+        "69b154d23d59"
+    )
+
+    def handler(
+        request: httpx.Request,
+    ) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == (
+            f"/api/v1/reply-drafts/"
+            f"{draft_id}/send"
+        )
+
+        import json
+
+        payload = json.loads(
+            request.content.decode("utf-8")
+        )
+
+        assert payload == {
+            "expected_revision": 5,
+        }
+
+        return httpx.Response(
+            200,
+            json={
+                "id": draft_id,
+                "status": "sent",
+                "current_revision_number": 5,
+                "gmail_message_id": "gmail-message-123",
+            },
+        )
+
+    client = make_client(handler)
+
+    try:
+        result = client.send_reply_draft(
+            draft_id=draft_id,
+            expected_revision=5,
+        )
+
+        assert result["status"] == "sent"
+        assert (
+            result["gmail_message_id"]
+            == "gmail-message-123"
+        )
+
+    finally:
+        client.close()
+
+
+def test_409_preserves_safe_api_error_message() -> None:
+    draft_id = (
+        "c0beeb4c-9754-44cb-842f-"
+        "6bf5d35ec629"
+    )
+
+    def handler(
+        request: httpx.Request,
+    ) -> httpx.Response:
+        return httpx.Response(
+            409,
+            json={
+                "detail": (
+                    "Reply draft changed since you loaded it. "
+                    "Refresh and review the latest revision "
+                    "before continuing."
+                )
+            },
+        )
+
+    client = make_client(handler)
+
+    try:
+        with pytest.raises(ApiError) as error:
+            client.approve_reply_draft(
+                draft_id=draft_id,
+                expected_revision=1,
+            )
+
+        assert error.value.status == 409
+        assert "Refresh" in error.value.message
 
     finally:
         client.close()

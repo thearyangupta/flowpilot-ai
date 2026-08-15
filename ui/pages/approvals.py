@@ -23,16 +23,32 @@ def page_api() -> FlowPilotClient:
     )
 
 
+def show_api_error(
+    error: ApiError,
+) -> None:
+    st.error(error.message)
+
+    if getattr(error, "status_code", None) == 409:
+        st.warning(
+            "The draft state changed. Refresh the latest "
+            "revision and review it before trying again."
+        )
+
+        if st.button(
+            "Refresh latest revision",
+            key="approval.refresh_conflict",
+        ):
+            st.rerun()
+
+
 st.title("Approvals")
 
 st.write(
-    "Review AI-generated drafts and their "
-    "supporting evidence before allowing "
-    "a guarded action."
+    "Review AI-generated drafts and their supporting "
+    "evidence before allowing a guarded action."
 )
 
 api = page_api()
-
 
 try:
     drafts = api.list_pending_reply_drafts()
@@ -55,10 +71,10 @@ if not drafts:
 
 st.subheader("Pending approvals")
 
-
 draft_rows = [
     {
         "Draft ID": draft["id"],
+        "Revision": draft["current_revision_number"],
         "Status": draft["status"],
         "Subject": (
             draft.get(
@@ -73,25 +89,21 @@ draft_rows = [
     for draft in drafts
 ]
 
-
 st.dataframe(
     draft_rows,
     use_container_width=True,
     hide_index=True,
 )
 
-
 draft_ids = [
     draft["id"]
     for draft in drafts
 ]
 
-
 selected_draft_id = st.selectbox(
     "Draft to review",
     options=draft_ids,
 )
-
 
 selected_draft = next(
     draft
@@ -99,6 +111,9 @@ selected_draft = next(
     if draft["id"] == selected_draft_id
 )
 
+revision_number = int(
+    selected_draft["current_revision_number"]
+)
 
 source_message = selected_draft.get(
     "source_message",
@@ -110,11 +125,13 @@ draft_message = selected_draft.get(
     {},
 )
 
+st.info(
+    f"You are reviewing revision {revision_number}. "
+    "Any approval or rejection applies only to this revision."
+)
 
 st.divider()
-
 st.subheader("Source request")
-
 
 st.write(
     "**From:**",
@@ -127,7 +144,6 @@ st.write(
     ),
 )
 
-
 st.write(
     "**Subject:**",
     source_message.get(
@@ -135,7 +151,6 @@ st.write(
         "",
     ),
 )
-
 
 st.text_area(
     "Customer message",
@@ -150,11 +165,10 @@ st.text_area(
     disabled=True,
 )
 
-
 st.divider()
-
-st.subheader("AI-generated draft")
-
+st.subheader(
+    f"AI-generated draft — revision {revision_number}"
+)
 
 st.write(
     "**Recipient:**",
@@ -164,7 +178,6 @@ st.write(
     ),
 )
 
-
 st.write(
     "**Subject:**",
     draft_message.get(
@@ -172,7 +185,6 @@ st.write(
         "",
     ),
 )
-
 
 st.text_area(
     "Draft reply",
@@ -184,15 +196,12 @@ st.text_area(
     disabled=True,
 )
 
-
 citation_ids = draft_message.get(
     "citation_ids",
     [],
 )
 
-
 st.subheader("Grounding evidence")
-
 
 if citation_ids:
     st.write(
@@ -212,53 +221,128 @@ else:
 
 
 st.divider()
+st.subheader("Edit")
 
+with st.form(
+    key=(
+        "approval.edit."
+        f"{selected_draft_id}."
+        f"{revision_number}"
+    )
+):
+    edited_recipient = st.text_input(
+        "Recipient",
+        value=str(
+            draft_message.get(
+                "recipient",
+                "",
+            )
+        ),
+    )
+
+    edited_subject = st.text_input(
+        "Subject",
+        value=str(
+            draft_message.get(
+                "subject",
+                "",
+            )
+        ),
+    )
+
+    edited_body = st.text_area(
+        "Reply",
+        value=str(
+            draft_message.get(
+                "body",
+                "",
+            )
+        ),
+        height=220,
+    )
+
+    save_edit = st.form_submit_button(
+        f"Save as revision {revision_number + 1}"
+    )
+
+
+if save_edit:
+    edited_content = dict(draft_message)
+
+    edited_content["recipient"] = edited_recipient
+    edited_content["subject"] = edited_subject
+    edited_content["body"] = edited_body
+
+    try:
+        api.edit_reply_draft(
+            draft_id=selected_draft_id,
+            expected_revision=revision_number,
+            content=edited_content,
+        )
+
+    except SessionExpired:
+        clear_session_state()
+        st.rerun()
+
+    except ApiError as error:
+        show_api_error(error)
+
+    else:
+        st.success(
+            f"Revision {revision_number + 1} created."
+        )
+        st.rerun()
+
+
+st.divider()
 st.subheader("Decision")
-
 
 acknowledged = st.checkbox(
     (
         "I reviewed the source request, "
-        "AI draft and grounding evidence."
+        f"revision {revision_number}, "
+        "and its grounding evidence."
     ),
     key=(
         "approval.acknowledged."
-        f"{selected_draft_id}"
+        f"{selected_draft_id}."
+        f"{revision_number}"
     ),
 )
 
-
 rejection_reason = st.text_area(
-    "Rejection reason",
+    (
+        f"Rejection reason for revision "
+        f"{revision_number}"
+    ),
     placeholder=(
         "Required only when rejecting "
-        "this draft."
+        "this revision."
     ),
     key=(
         "approval.rejection_reason."
-        f"{selected_draft_id}"
+        f"{selected_draft_id}."
+        f"{revision_number}"
     ),
 )
 
-
 approve_col, reject_col = st.columns(2)
-
 
 with approve_col:
     approve_clicked = st.button(
-        "Approve draft",
+        f"Approve revision {revision_number}",
         type="primary",
         use_container_width=True,
         disabled=not acknowledged,
     )
 
-
 with reject_col:
     reject_clicked = st.button(
-        "Reject draft",
+        f"Reject revision {revision_number}",
         use_container_width=True,
         disabled=(
-            not rejection_reason.strip()
+            not acknowledged
+            or not rejection_reason.strip()
         ),
     )
 
@@ -267,6 +351,7 @@ if approve_clicked:
     try:
         api.approve_reply_draft(
             draft_id=selected_draft_id,
+            expected_revision=revision_number,
         )
 
     except SessionExpired:
@@ -274,13 +359,12 @@ if approve_clicked:
         st.rerun()
 
     except ApiError as error:
-        st.error(error.message)
+        show_api_error(error)
 
     else:
         st.success(
-            "Draft approved."
+            f"Revision {revision_number} approved."
         )
-
         st.rerun()
 
 
@@ -288,6 +372,7 @@ if reject_clicked:
     try:
         api.reject_reply_draft(
             draft_id=selected_draft_id,
+            expected_revision=revision_number,
             reason=rejection_reason.strip(),
         )
 
@@ -296,11 +381,11 @@ if reject_clicked:
         st.rerun()
 
     except ApiError as error:
-        st.error(error.message)
+        show_api_error(error)
 
     else:
         st.success(
-            "Draft rejected."
+            f"Revision {revision_number} rejected."
         )
-
         st.rerun()
+

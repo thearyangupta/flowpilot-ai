@@ -517,15 +517,53 @@ class FlowPilotClient:
                     "FlowPilot API returned an invalid response",
                 )
 
+            if not isinstance(
+                draft.get("current_revision_number"),
+                int,
+            ):
+                raise ApiError(
+                    502,
+                    "FlowPilot API returned an invalid response",
+                )
+
             drafts.append(draft)
 
         return drafts
+
+
+    def edit_reply_draft(
+        self,
+        *,
+        draft_id: str,
+        expected_revision: int,
+        content: dict[str, Any],
+    ) -> dict[str, Any]:
+        result = self.request(
+            "POST",
+            (
+                f"/api/v1/reply-drafts/"
+                f"{draft_id}/revisions"
+            ),
+            json={
+                "expected_revision": expected_revision,
+                "content": content,
+            },
+        )
+
+        if not isinstance(result, dict):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        return result
 
 
     def approve_reply_draft(
         self,
         *,
         draft_id: str,
+        expected_revision: int,
     ) -> dict[str, Any]:
         result = self.request(
             "POST",
@@ -533,6 +571,9 @@ class FlowPilotClient:
                 f"/api/v1/reply-drafts/"
                 f"{draft_id}/approve"
             ),
+            json={
+                "expected_revision": expected_revision,
+            },
         )
 
         if not isinstance(result, dict):
@@ -548,6 +589,7 @@ class FlowPilotClient:
         self,
         *,
         draft_id: str,
+        expected_revision: int,
         reason: str,
     ) -> dict[str, Any]:
         result = self.request(
@@ -557,6 +599,7 @@ class FlowPilotClient:
                 f"{draft_id}/reject"
             ),
             json={
+                "expected_revision": expected_revision,
                 "reason": reason,
             },
         )
@@ -568,6 +611,34 @@ class FlowPilotClient:
             )
 
         return result
+
+
+    def send_reply_draft(
+        self,
+        *,
+        draft_id: str,
+        expected_revision: int,
+    ) -> dict[str, Any]:
+        result = self.request(
+            "POST",
+            (
+                f"/api/v1/reply-drafts/"
+                f"{draft_id}/send"
+            ),
+            json={
+                "expected_revision": expected_revision,
+            },
+        )
+
+        if not isinstance(result, dict):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        return result
+
+
     def close(self) -> None:
         self.http.close()
 

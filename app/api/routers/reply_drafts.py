@@ -14,17 +14,31 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.reply_draft import (
     ReplyDraftApprovalBundleRead,
+    ReplyDraftDecisionCreate,
+    ReplyDraftEditCreate,
     ReplyDraftRead,
     ReplyDraftRejectCreate,
+    ReplyDraftRevisionRead,
+    ReplyDraftSendCreate,
 )
 from app.services import reply_draft_service
 from app.services.reply_draft_service import (
     InvalidReplyDraftStateError,
     ReplyDraftNotFoundError,
+    StaleReplyDraftRevisionError,
 )
 
 
 router = APIRouter()
+
+
+def raise_conflict(
+    error: Exception,
+) -> None:
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=str(error),
+    ) from error
 
 
 @router.get(
@@ -74,11 +88,48 @@ def get_reply_draft_approval_bundle(
 
 
 @router.post(
+    "/reply-drafts/{draft_id}/revisions",
+    response_model=ReplyDraftRevisionRead,
+)
+def edit_reply_draft(
+    draft_id: UUID,
+    payload: ReplyDraftEditCreate,
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+) -> ReplyDraftRevisionRead:
+    try:
+        return reply_draft_service.create_revision(
+            db=db,
+            draft_id=draft_id,
+            user_id=current_user.id,
+            expected_revision=payload.expected_revision,
+            content=payload.content,
+            created_by_actor="user",
+            created_by_user_id=current_user.id,
+        )
+
+    except ReplyDraftNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(error),
+        ) from error
+
+    except (
+        StaleReplyDraftRevisionError,
+        InvalidReplyDraftStateError,
+    ) as error:
+        raise_conflict(error)
+
+
+@router.post(
     "/reply-drafts/{draft_id}/approve",
     response_model=ReplyDraftRead,
 )
 def approve_reply_draft(
     draft_id: UUID,
+    payload: ReplyDraftDecisionCreate,
     current_user: User = Depends(
         get_current_user
     ),
@@ -89,6 +140,7 @@ def approve_reply_draft(
             db=db,
             draft_id=draft_id,
             user_id=current_user.id,
+            expected_revision=payload.expected_revision,
         )
 
     except ReplyDraftNotFoundError as error:
@@ -97,11 +149,11 @@ def approve_reply_draft(
             detail=str(error),
         ) from error
 
-    except InvalidReplyDraftStateError as error:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=str(error),
-        ) from error
+    except (
+        StaleReplyDraftRevisionError,
+        InvalidReplyDraftStateError,
+    ) as error:
+        raise_conflict(error)
 
 
 @router.post(
@@ -121,6 +173,7 @@ def reject_reply_draft(
             db=db,
             draft_id=draft_id,
             user_id=current_user.id,
+            expected_revision=payload.expected_revision,
             reason=payload.reason,
         )
 
@@ -130,8 +183,41 @@ def reject_reply_draft(
             detail=str(error),
         ) from error
 
-    except InvalidReplyDraftStateError as error:
+    except (
+        StaleReplyDraftRevisionError,
+        InvalidReplyDraftStateError,
+    ) as error:
+        raise_conflict(error)
+
+
+@router.post(
+    "/reply-drafts/{draft_id}/send",
+    response_model=ReplyDraftRead,
+)
+def send_reply_draft(
+    draft_id: UUID,
+    payload: ReplyDraftSendCreate,
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+) -> ReplyDraftRead:
+    try:
+        return reply_draft_service.send_approved(
+            db=db,
+            draft_id=draft_id,
+            user_id=current_user.id,
+            expected_revision=payload.expected_revision,
+        )
+
+    except ReplyDraftNotFoundError as error:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=str(error),
         ) from error
+
+    except (
+        StaleReplyDraftRevisionError,
+        InvalidReplyDraftStateError,
+    ) as error:
+        raise_conflict(error)

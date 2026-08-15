@@ -28,10 +28,34 @@ class ReplyDraftRead(BaseModel):
     }
 
 
+class ReplyDraftDecisionCreate(BaseModel):
+    expected_revision: int = Field(
+        ge=1,
+    )
+
+
 class ReplyDraftRejectCreate(BaseModel):
+    expected_revision: int = Field(
+        ge=1,
+    )
+
     reason: str = Field(
         min_length=3,
         max_length=1000,
+    )
+
+
+class ReplyDraftEditCreate(BaseModel):
+    expected_revision: int = Field(
+        ge=1,
+    )
+
+    content: dict[str, Any]
+
+
+class ReplyDraftSendCreate(BaseModel):
+    expected_revision: int = Field(
+        ge=1,
     )
 
 

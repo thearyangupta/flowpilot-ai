@@ -38,6 +38,26 @@ class InvalidReplyDraftStateError(ReplyDraftError):
     """Raised when a reply draft cannot transition to the requested state."""
 
 
+class StaleReplyDraftRevisionError(ReplyDraftError):
+    """Raised when a command targets an outdated draft revision."""
+
+    def __init__(
+        self,
+        *,
+        expected_revision: int,
+        current_revision: int,
+    ) -> None:
+        self.expected_revision = expected_revision
+        self.current_revision = current_revision
+
+        super().__init__(
+            "Reply draft changed since you loaded it. "
+            f"You reviewed revision {expected_revision}, "
+            f"but revision {current_revision} is now current. "
+            "Refresh and review the latest revision before continuing."
+        )
+
+
 def require_owned(
     db: Session,
     *,
@@ -121,17 +141,79 @@ def approve(
     *,
     draft_id: UUID,
     user_id: UUID,
+    expected_revision: int,
 ) -> ReplyDraft:
-    draft = require_owned_pending(
+    draft = get_for_update(
         db,
         draft_id=draft_id,
+    )
+
+    if draft.user_id != user_id:
+        raise ReplyDraftNotFoundError(
+            "Reply draft not found."
+        )
+
+    require_expected_revision(
+        db=db,
+        draft=draft,
         user_id=user_id,
+        expected_revision=expected_revision,
+        action="approve",
     )
 
     revision = get_current_revision(
         db,
         draft=draft,
     )
+
+    # Safe replay:
+    # approving an already-approved same revision does
+    # not create another authority decision.
+    if draft.status == ReplyDraftStatus.APPROVED:
+        latest_decision = db.execute(
+            select(ApprovalDecision)
+            .where(
+                ApprovalDecision.user_id == user_id,
+                ApprovalDecision.revision_id == revision.id,
+            )
+            .order_by(
+                ApprovalDecision.created_at.desc(),
+                ApprovalDecision.id.desc(),
+            )
+            .limit(1)
+        ).scalar_one_or_none()
+
+        if (
+            latest_decision is not None
+            and latest_decision.action == "approved"
+        ):
+            create_reply_draft_audit_event(
+                db=db,
+                reply_draft_id=draft.id,
+                event_type="approval_replayed",
+                details={
+                    "revision_id": str(revision.id),
+                    "revision_number": revision.revision_number,
+                },
+                actor="user",
+                actor_user_id=user_id,
+            )
+
+            db.commit()
+            db.refresh(draft)
+
+            return draft
+
+    if draft.status != ReplyDraftStatus.PENDING_APPROVAL:
+        deny_invalid_action(
+            db=db,
+            draft=draft,
+            user_id=user_id,
+            action="approve",
+            message=(
+                "Reply draft is not eligible for approval."
+            ),
+        )
 
     create_approval_decision(
         db=db,
@@ -171,19 +253,43 @@ def reject(
     *,
     draft_id: UUID,
     user_id: UUID,
+    expected_revision: int,
     reason: str,
 ) -> ReplyDraft:
-    draft = require_owned_pending(
-        db,
-        draft_id=draft_id,
-        user_id=user_id,
-    )
-
     normalized_reason = reason.strip()
 
     if not normalized_reason:
         raise ValueError(
             "A rejection reason is required."
+        )
+
+    draft = get_for_update(
+        db,
+        draft_id=draft_id,
+    )
+
+    if draft.user_id != user_id:
+        raise ReplyDraftNotFoundError(
+            "Reply draft not found."
+        )
+
+    require_expected_revision(
+        db=db,
+        draft=draft,
+        user_id=user_id,
+        expected_revision=expected_revision,
+        action="reject",
+    )
+
+    if draft.status != ReplyDraftStatus.PENDING_APPROVAL:
+        deny_invalid_action(
+            db=db,
+            draft=draft,
+            user_id=user_id,
+            action="reject",
+            message=(
+                "Reply draft is not eligible for rejection."
+            ),
         )
 
     revision = get_current_revision(
@@ -222,7 +328,7 @@ def reject(
     db.commit()
     db.refresh(draft)
 
-    return draft
+    return draft    
 
 
 def get_for_update(
@@ -243,12 +349,83 @@ def get_for_update(
 
     return draft
 
+def require_expected_revision(
+    db: Session,
+    *,
+    draft: ReplyDraft,
+    user_id: UUID,
+    expected_revision: int,
+    action: str,
+) -> None:
+    if expected_revision < 1:
+        raise ValueError(
+            "expected_revision must be at least 1."
+        )
+
+    current_revision = draft.current_revision_number
+
+    if current_revision == expected_revision:
+        return
+
+    create_reply_draft_audit_event(
+        db=db,
+        reply_draft_id=draft.id,
+        event_type="stale_action_denied",
+        details={
+            "action": action,
+            "expected_revision": expected_revision,
+            "current_revision": current_revision,
+        },
+        actor="user",
+        actor_user_id=user_id,
+    )
+
+    # No business mutation has occurred before this point.
+    # Commit the denied-action evidence separately.
+    db.commit()
+
+    raise StaleReplyDraftRevisionError(
+        expected_revision=expected_revision,
+        current_revision=current_revision,
+    )
+
+
+def deny_invalid_action(
+    db: Session,
+    *,
+    draft: ReplyDraft,
+    user_id: UUID,
+    action: str,
+    message: str,
+) -> None:
+    create_reply_draft_audit_event(
+        db=db,
+        reply_draft_id=draft.id,
+        event_type="action_denied_invalid_state",
+        details={
+            "action": action,
+            "status": (
+                draft.status.value
+                if hasattr(draft.status, "value")
+                else str(draft.status)
+            ),
+            "current_revision": draft.current_revision_number,
+        },
+        actor="user",
+        actor_user_id=user_id,
+    )
+
+    db.commit()
+
+    raise InvalidReplyDraftStateError(message)
+
 
 def create_revision(
     db: Session,
     *,
     draft_id: UUID,
     user_id: UUID,
+    expected_revision: int,
     content: dict[str, Any],
     created_by_actor: str = "user",
     created_by_user_id: UUID | None = None,
@@ -270,9 +447,23 @@ def create_revision(
             "Reply draft not found."
         )
 
+    require_expected_revision(
+        db=db,
+        draft=draft,
+        user_id=user_id,
+        expected_revision=expected_revision,
+        action="edit",
+    )
+
     if draft.status == ReplyDraftStatus.SENT:
-        raise InvalidReplyDraftStateError(
-            "A sent reply draft cannot be revised."
+        deny_invalid_action(
+            db=db,
+            draft=draft,
+            user_id=user_id,
+            action="edit",
+            message=(
+                "A sent reply draft cannot be revised."
+            ),
         )
 
     next_revision_number = (
@@ -384,12 +575,110 @@ def send_approved(
     *,
     draft_id: UUID,
     user_id: UUID,
+    expected_revision: int,
 ) -> ReplyDraft:
-    draft = require_approved_for_send(
+    draft = get_for_update(
         db,
         draft_id=draft_id,
-        user_id=user_id,
     )
+
+    if draft.user_id != user_id:
+        raise ReplyDraftNotFoundError(
+            "Reply draft not found."
+        )
+
+    require_expected_revision(
+        db=db,
+        draft=draft,
+        user_id=user_id,
+        expected_revision=expected_revision,
+        action="send",
+    )
+
+    # Local idempotent replay.
+    # Once FlowPilot has persisted the provider message id,
+    # later retries do not call Gmail again.
+    if draft.status == ReplyDraftStatus.SENT:
+        if not draft.gmail_message_id:
+            raise ReplyDraftError(
+                "Sent reply draft is missing its Gmail message id."
+            )
+
+        create_reply_draft_audit_event(
+            db=db,
+            reply_draft_id=draft.id,
+            event_type="send_replayed",
+            details={
+                "revision_number": draft.current_revision_number,
+                "gmail_message_id": draft.gmail_message_id,
+            },
+            actor="workflow_worker",
+            actor_user_id=user_id,
+        )
+
+        db.commit()
+        db.refresh(draft)
+
+        return draft
+
+    if draft.status != ReplyDraftStatus.APPROVED:
+        deny_invalid_action(
+            db=db,
+            draft=draft,
+            user_id=user_id,
+            action="send",
+            message=(
+                "Reply draft is not approved for sending."
+            ),
+        )
+
+    revision = get_current_revision(
+        db,
+        draft=draft,
+    )
+
+    latest_decision = db.execute(
+        select(ApprovalDecision)
+        .where(
+            ApprovalDecision.user_id == user_id,
+            ApprovalDecision.revision_id == revision.id,
+        )
+        .order_by(
+            ApprovalDecision.created_at.desc(),
+            ApprovalDecision.id.desc(),
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if (
+        latest_decision is None
+        or latest_decision.action != "approved"
+    ):
+        deny_invalid_action(
+            db=db,
+            draft=draft,
+            user_id=user_id,
+            action="send",
+            message=(
+                "The current revision has no valid "
+                "approval decision."
+            ),
+        )
+
+    if (
+        hash_content(draft.draft_message)
+        != revision.content_hash
+    ):
+        deny_invalid_action(
+            db=db,
+            draft=draft,
+            user_id=user_id,
+            action="send",
+            message=(
+                "Current draft content does not match "
+                "the approved revision."
+            ),
+        )
 
     gmail = build_gmail_client(
         db=db,
@@ -430,7 +719,9 @@ def send_approved(
         event_type="sent",
         details={
             "gmail_message_id": gmail_message_id,
-            "revision_number": draft.current_revision_number,
+            "revision_id": str(revision.id),
+            "revision_number": revision.revision_number,
+            "content_hash": revision.content_hash,
         },
         actor="workflow_worker",
         actor_user_id=user_id,
@@ -441,7 +732,6 @@ def send_approved(
     db.refresh(draft)
 
     return draft
-
 
 def create_pending(
     db: Session,
