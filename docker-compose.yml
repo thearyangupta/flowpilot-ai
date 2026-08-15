@@ -1,0 +1,290 @@
+﻿name: flowpilot
+
+services:
+
+  postgres:
+    image: pgvector/pgvector:pg17
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-flowpilot}
+      POSTGRES_DB: ${POSTGRES_DB:-flowpilot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+    restart: unless-stopped
+
+    networks:
+      - flowpilot
+
+
+  redis:
+    image: redis:7-alpine
+
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes"
+      ]
+
+    volumes:
+      - redis_data:/data
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "ping"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 3s
+
+    restart: unless-stopped
+
+    networks:
+      - flowpilot
+
+
+  migrate:
+    image: flowpilot:day3-local
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+
+    env_file:
+      - .env
+
+    environment:
+      ENVIRONMENT: docker
+
+      DATABASE_URL: >-
+        postgresql+psycopg://${POSTGRES_USER:-flowpilot}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-flowpilot}
+
+      TEST_DATABASE_URL: >-
+        postgresql+psycopg://${POSTGRES_USER:-flowpilot}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-flowpilot}_test
+
+      REDIS_BROKER_URL: redis://redis:6379/0
+      REDIS_RESULT_URL: redis://redis:6379/1
+
+    command:
+      [
+        "python",
+        "-m",
+        "alembic",
+        "upgrade",
+        "head"
+      ]
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    restart: "no"
+
+    networks:
+      - flowpilot
+
+
+  api:
+    image: flowpilot:day3-local
+
+    env_file:
+      - .env
+
+    environment:
+      ENVIRONMENT: docker
+
+      DATABASE_URL: >-
+        postgresql+psycopg://${POSTGRES_USER:-flowpilot}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-flowpilot}
+
+      TEST_DATABASE_URL: >-
+        postgresql+psycopg://${POSTGRES_USER:-flowpilot}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-flowpilot}_test
+
+      REDIS_BROKER_URL: redis://redis:6379/0
+      REDIS_RESULT_URL: redis://redis:6379/1
+
+      STREAMLIT_APP_URL: http://localhost:8501
+
+    command:
+      [
+        "python",
+        "-m",
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000"
+      ]
+
+    ports:
+      - "8000:8000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      redis:
+        condition: service_healthy
+
+      migrate:
+        condition: service_completed_successfully
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+    init: true
+    stop_grace_period: 30s
+
+    restart: unless-stopped
+
+    networks:
+      - flowpilot
+
+
+  worker:
+    image: flowpilot:day3-local
+
+    env_file:
+      - .env
+
+    environment:
+      ENVIRONMENT: docker
+
+      DATABASE_URL: >-
+        postgresql+psycopg://${POSTGRES_USER:-flowpilot}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-flowpilot}
+
+      TEST_DATABASE_URL: >-
+        postgresql+psycopg://${POSTGRES_USER:-flowpilot}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-flowpilot}_test
+
+      REDIS_BROKER_URL: redis://redis:6379/0
+      REDIS_RESULT_URL: redis://redis:6379/1
+
+    command:
+      [
+        "celery",
+        "-A",
+        "app.worker.celery_app:celery_app",
+        "worker",
+        "--loglevel=INFO",
+        "--queues=workflows,maintenance"
+      ]
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      redis:
+        condition: service_healthy
+
+      migrate:
+        condition: service_completed_successfully
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from app.worker.celery_app import celery_app; import socket; r=celery_app.control.ping(timeout=3, destination=[f'celery@{socket.gethostname()}']); raise SystemExit(0 if r else 1)"
+        ]
+      interval: 15s
+      timeout: 8s
+      retries: 8
+      start_period: 20s
+
+    init: true
+    stop_grace_period: 30s
+
+    restart: unless-stopped
+
+    networks:
+      - flowpilot
+
+
+  ui:
+    image: flowpilot:day3-local
+
+    environment:
+      FLOWPILOT_API_BASE_URL: http://api:8000
+
+    command:
+      [
+        "python",
+        "-m",
+        "streamlit",
+        "run",
+        "ui/app.py",
+        "--server.address=0.0.0.0",
+        "--server.port=8501",
+        "--server.headless=true"
+      ]
+
+    ports:
+      - "8501:8501"
+
+    depends_on:
+      api:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8501', timeout=3)"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+    init: true
+    stop_grace_period: 30s
+
+    restart: unless-stopped
+
+    networks:
+      - flowpilot
+
+
+volumes:
+
+  postgres_data:
+
+  redis_data:
+
+
+networks:
+
+  flowpilot:
+    driver: bridge
