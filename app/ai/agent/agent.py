@@ -1,8 +1,13 @@
+from collections.abc import Sequence
 from typing import Any
 
 from langchain.agents import create_agent
 from langchain_core.language_models import (
     BaseChatModel,
+)
+from langchain_core.messages import (
+    BaseMessage,
+    HumanMessage,
 )
 
 from app.ai.agent.tools import (
@@ -25,6 +30,9 @@ concisely.
 """.strip()
 
 
+AGENT_RECURSION_LIMIT = 12
+
+
 def build_agent(
     *,
     model: BaseChatModel,
@@ -43,20 +51,41 @@ def build_agent(
     )
 
 
+def invoke_agent(
+    *,
+    agent,
+    message: str,
+    history: Sequence[BaseMessage] | None = None,
+) -> dict[str, Any]:
+    messages = list(history or [])
+
+    messages.append(
+        HumanMessage(
+            content=message,
+        )
+    )
+
+    return agent.invoke(
+        {
+            "messages": messages,
+        },
+        config={
+            "recursion_limit":
+                AGENT_RECURSION_LIMIT,
+        },
+    )
+
+
 def run_agent(
     *,
     agent,
     message: str,
+    history: Sequence[BaseMessage] | None = None,
 ) -> str:
-    result = agent.invoke(
-        {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": message,
-                }
-            ]
-        }
+    result = invoke_agent(
+        agent=agent,
+        message=message,
+        history=history,
     )
 
     final_message = result["messages"][-1]
