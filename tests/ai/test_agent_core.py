@@ -17,6 +17,7 @@ def test_agent_returns_final_answer() -> None:
 
     agent = build_agent(
         model=model,
+        tools=[],
     )
 
     result = run_agent(
