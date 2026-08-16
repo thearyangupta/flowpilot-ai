@@ -15,6 +15,14 @@ from app.services.execution.execution_event_service import (
 from app.services.google.google_provider_service import (
     build_gmail_client,
 )
+from app.services.google.gmail_command_service import (
+    build_send_fingerprint,
+    claim_or_replay,
+    mark_completed,
+    mark_uncertain,
+    resolve_idempotency_key,
+)
+
 from app.services.reply_draft_audit_service import (
     create_reply_draft_audit_event,
 )
@@ -576,6 +584,7 @@ def send_approved(
     draft_id: UUID,
     user_id: UUID,
     expected_revision: int,
+    idempotency_key: str | None = None,
 ) -> ReplyDraft:
     draft = get_for_update(
         db,
@@ -595,13 +604,72 @@ def send_approved(
         action="send",
     )
 
-    # Local idempotent replay.
-    # Once FlowPilot has persisted the provider message id,
-    # later retries do not call Gmail again.
-    if draft.status == ReplyDraftStatus.SENT:
+    revision = get_current_revision(
+        db,
+        draft=draft,
+    )
+
+    effective_key = resolve_idempotency_key(
+        provided_key=idempotency_key,
+        draft_id=draft.id,
+        revision_number=(
+            revision.revision_number
+        ),
+    )
+
+    fingerprint = build_send_fingerprint(
+        draft_id=draft.id,
+        revision_number=(
+            revision.revision_number
+        ),
+        gmail_draft_id=(
+            draft.gmail_draft_id
+        ),
+        content_hash=(
+            revision.content_hash
+        ),
+    )
+
+    # Existing completed business effect:
+    # never call Gmail again.
+    if (
+        draft.status
+        == ReplyDraftStatus.SENT
+    ):
         if not draft.gmail_message_id:
             raise ReplyDraftError(
-                "Sent reply draft is missing its Gmail message id."
+                "Sent reply draft is missing "
+                "its Gmail message id."
+            )
+
+        command, replayed = claim_or_replay(
+            db,
+            user_id=user_id,
+            reply_draft_id=draft.id,
+            revision_number=(
+                revision.revision_number
+            ),
+            idempotency_key=effective_key,
+            fingerprint=fingerprint,
+        )
+
+        # Backward-compatibility case:
+        # the old business state already proves
+        # Gmail was sent, but this particular
+        # command record may not yet exist.
+        if not replayed:
+            mark_completed(
+                command=command,
+                outcome={
+                    "reply_draft_id":
+                        str(draft.id),
+                    "revision_number":
+                        revision
+                        .revision_number,
+                    "gmail_message_id":
+                        draft
+                        .gmail_message_id,
+                },
             )
 
         create_reply_draft_audit_event(
@@ -609,50 +677,26 @@ def send_approved(
             reply_draft_id=draft.id,
             event_type="send_replayed",
             details={
-                "revision_number": draft.current_revision_number,
-                "gmail_message_id": draft.gmail_message_id,
+                "revision_number":
+                    revision.revision_number,
+                "gmail_message_id":
+                    draft.gmail_message_id,
+                "gmail_command_id":
+                    str(command.id),
             },
             actor="workflow_worker",
             actor_user_id=user_id,
         )
 
+        db.add(command)
         db.commit()
         db.refresh(draft)
 
         return draft
 
-    if draft.status != ReplyDraftStatus.APPROVED:
-        deny_invalid_action(
-            db=db,
-            draft=draft,
-            user_id=user_id,
-            action="send",
-            message=(
-                "Reply draft is not approved for sending."
-            ),
-        )
-
-    revision = get_current_revision(
-        db,
-        draft=draft,
-    )
-
-    latest_decision = db.execute(
-        select(ApprovalDecision)
-        .where(
-            ApprovalDecision.user_id == user_id,
-            ApprovalDecision.revision_id == revision.id,
-        )
-        .order_by(
-            ApprovalDecision.created_at.desc(),
-            ApprovalDecision.id.desc(),
-        )
-        .limit(1)
-    ).scalar_one_or_none()
-
     if (
-        latest_decision is None
-        or latest_decision.action != "approved"
+        draft.status
+        != ReplyDraftStatus.APPROVED
     ):
         deny_invalid_action(
             db=db,
@@ -660,13 +704,47 @@ def send_approved(
             user_id=user_id,
             action="send",
             message=(
-                "The current revision has no valid "
-                "approval decision."
+                "Reply draft is not "
+                "approved for sending."
+            ),
+        )
+
+    latest_decision = db.execute(
+        select(ApprovalDecision)
+        .where(
+            ApprovalDecision.user_id
+            == user_id,
+            ApprovalDecision.revision_id
+            == revision.id,
+        )
+        .order_by(
+            ApprovalDecision
+            .created_at.desc(),
+            ApprovalDecision.id.desc(),
+        )
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if (
+        latest_decision is None
+        or latest_decision.action
+        != "approved"
+    ):
+        deny_invalid_action(
+            db=db,
+            draft=draft,
+            user_id=user_id,
+            action="send",
+            message=(
+                "The current revision has "
+                "no valid approval decision."
             ),
         )
 
     if (
-        hash_content(draft.draft_message)
+        hash_content(
+            draft.draft_message
+        )
         != revision.content_hash
     ):
         deny_invalid_action(
@@ -675,10 +753,74 @@ def send_approved(
             user_id=user_id,
             action="send",
             message=(
-                "Current draft content does not match "
-                "the approved revision."
+                "Current draft content does "
+                "not match the approved "
+                "revision."
             ),
         )
+
+    command, replayed = claim_or_replay(
+        db,
+        user_id=user_id,
+        reply_draft_id=draft.id,
+        revision_number=(
+            revision.revision_number
+        ),
+        idempotency_key=effective_key,
+        fingerprint=fingerprint,
+    )
+
+    if replayed:
+        outcome = command.outcome or {}
+
+        gmail_message_id = (
+            outcome.get(
+                "gmail_message_id"
+            )
+        )
+
+        if (
+            not isinstance(
+                gmail_message_id,
+                str,
+            )
+            or not gmail_message_id
+        ):
+            raise ReplyDraftError(
+                "Stored Gmail command "
+                "outcome is incomplete."
+            )
+
+        draft.gmail_message_id = (
+            gmail_message_id
+        )
+
+        draft.status = (
+            ReplyDraftStatus.SENT
+        )
+
+        create_reply_draft_audit_event(
+            db=db,
+            reply_draft_id=draft.id,
+            event_type="send_replayed",
+            details={
+                "revision_number":
+                    revision
+                    .revision_number,
+                "gmail_message_id":
+                    gmail_message_id,
+                "gmail_command_id":
+                    str(command.id),
+            },
+            actor="workflow_worker",
+            actor_user_id=user_id,
+        )
+
+        db.add(draft)
+        db.commit()
+        db.refresh(draft)
+
+        return draft
 
     gmail = build_gmail_client(
         db=db,
@@ -692,43 +834,148 @@ def send_approved(
             .send(
                 userId="me",
                 body={
-                    "id": draft.gmail_draft_id,
+                    "id":
+                        draft.gmail_draft_id,
                 },
             )
             .execute()
         )
 
     except Exception as error:
+        # Gmail may have accepted the send even
+        # when FlowPilot did not receive the
+        # response. Never blindly retry this.
+        mark_uncertain(
+            command=command,
+            outcome={
+                "reply_draft_id":
+                    str(draft.id),
+                "revision_number":
+                    revision
+                    .revision_number,
+            },
+        )
+
+        create_reply_draft_audit_event(
+            db=db,
+            reply_draft_id=draft.id,
+            event_type=(
+                "send_outcome_uncertain"
+            ),
+            details={
+                "revision_number":
+                    revision
+                    .revision_number,
+                "gmail_command_id":
+                    str(command.id),
+                "error_type":
+                    type(error).__name__,
+            },
+            actor="workflow_worker",
+            actor_user_id=user_id,
+        )
+
+        db.add(command)
+        db.commit()
+
         raise ReplyDraftError(
             "Gmail draft could not be sent."
         ) from error
 
-    gmail_message_id = response.get("id")
+    gmail_message_id = (
+        response.get("id")
+    )
 
-    if not gmail_message_id:
-        raise ReplyDraftError(
-            "Gmail did not return a message id."
+    if (
+        not isinstance(
+            gmail_message_id,
+            str,
+        )
+        or not gmail_message_id
+    ):
+        mark_uncertain(
+            command=command,
+            outcome={
+                "reply_draft_id":
+                    str(draft.id),
+                "revision_number":
+                    revision
+                    .revision_number,
+            },
         )
 
-    draft.gmail_message_id = gmail_message_id
-    draft.status = ReplyDraftStatus.SENT
+        create_reply_draft_audit_event(
+            db=db,
+            reply_draft_id=draft.id,
+            event_type=(
+                "send_outcome_uncertain"
+            ),
+            details={
+                "revision_number":
+                    revision
+                    .revision_number,
+                "gmail_command_id":
+                    str(command.id),
+                "reason":
+                    "missing_message_id",
+            },
+            actor="workflow_worker",
+            actor_user_id=user_id,
+        )
+
+        db.add(command)
+        db.commit()
+
+        raise ReplyDraftError(
+            "Gmail did not return "
+            "a message id."
+        )
+
+    draft.gmail_message_id = (
+        gmail_message_id
+    )
+
+    draft.status = (
+        ReplyDraftStatus.SENT
+    )
+
+    mark_completed(
+        command=command,
+        outcome={
+            "reply_draft_id":
+                str(draft.id),
+            "revision_number":
+                revision.revision_number,
+            "gmail_message_id":
+                gmail_message_id,
+        },
+    )
 
     create_reply_draft_audit_event(
         db=db,
         reply_draft_id=draft.id,
         event_type="sent",
         details={
-            "gmail_message_id": gmail_message_id,
-            "revision_id": str(revision.id),
-            "revision_number": revision.revision_number,
-            "content_hash": revision.content_hash,
+            "gmail_message_id":
+                gmail_message_id,
+            "revision_id":
+                str(revision.id),
+            "revision_number":
+                revision.revision_number,
+            "content_hash":
+                revision.content_hash,
+            "gmail_command_id":
+                str(command.id),
         },
         actor="workflow_worker",
         actor_user_id=user_id,
     )
 
+    db.add(command)
     db.add(draft)
+
     db.commit()
+
     db.refresh(draft)
 
     return draft

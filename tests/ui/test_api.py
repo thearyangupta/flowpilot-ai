@@ -364,6 +364,10 @@ def test_send_sends_expected_revision_and_exact_id() -> None:
 
         assert payload == {
             "expected_revision": 5,
+            "idempotency_key": (
+                f"reply-draft:{draft_id}:"
+                "revision:5:send"
+            ),
         }
 
         return httpx.Response(

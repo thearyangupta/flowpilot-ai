@@ -11,6 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
 from app.core.public_errors import (
+    GMAIL_IDEMPOTENCY_CONFLICT,
+    GMAIL_SEND_IN_PROGRESS,
+    GMAIL_SEND_OUTCOME_UNCERTAIN,
     REPLY_DRAFT_INVALID_STATE,
     REPLY_DRAFT_NOT_FOUND,
     REPLY_DRAFT_STALE,
@@ -27,6 +30,11 @@ from app.schemas.reply_draft import (
     ReplyDraftSendCreate,
 )
 from app.services import reply_draft_service
+from app.services.google.gmail_command_service import (
+    GmailCommandConflictError,
+    GmailCommandInProgressError,
+    GmailCommandOutcomeUncertainError,
+)
 from app.services.reply_draft_service import (
     InvalidReplyDraftStateError,
     ReplyDraftNotFoundError,
@@ -44,9 +52,7 @@ def raise_conflict(
         error,
         StaleReplyDraftRevisionError,
     ):
-        public_message = (
-            REPLY_DRAFT_STALE
-        )
+        public_message = REPLY_DRAFT_STALE
     else:
         public_message = (
             REPLY_DRAFT_INVALID_STATE
@@ -68,15 +74,20 @@ def list_pending_reply_drafts(
     ),
     db: Session = Depends(get_db),
 ) -> list[ReplyDraftRead]:
-    return reply_draft_service.list_pending_for_user(
-        db=db,
-        user_id=current_user.id,
+    return (
+        reply_draft_service
+        .list_pending_for_user(
+            db=db,
+            user_id=current_user.id,
+        )
     )
 
 
 @router.get(
     "/reply-drafts/{draft_id}/approval-bundle",
-    response_model=ReplyDraftApprovalBundleRead,
+    response_model=(
+        ReplyDraftApprovalBundleRead
+    ),
 )
 def get_reply_draft_approval_bundle(
     draft_id: UUID,
@@ -90,16 +101,23 @@ def get_reply_draft_approval_bundle(
     db: Session = Depends(get_db),
 ) -> ReplyDraftApprovalBundleRead:
     try:
-        return reply_draft_service.get_approval_bundle(
-            db=db,
-            draft_id=draft_id,
-            user_id=current_user.id,
-            revision_number=revision_number,
+        return (
+            reply_draft_service
+            .get_approval_bundle(
+                db=db,
+                draft_id=draft_id,
+                user_id=current_user.id,
+                revision_number=(
+                    revision_number
+                ),
+            )
         )
 
     except ReplyDraftNotFoundError as error:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
             detail=REPLY_DRAFT_NOT_FOUND,
         ) from error
 
@@ -117,19 +135,28 @@ def edit_reply_draft(
     db: Session = Depends(get_db),
 ) -> ReplyDraftRevisionRead:
     try:
-        return reply_draft_service.create_revision(
-            db=db,
-            draft_id=draft_id,
-            user_id=current_user.id,
-            expected_revision=payload.expected_revision,
-            content=payload.content,
-            created_by_actor="user",
-            created_by_user_id=current_user.id,
+        return (
+            reply_draft_service
+            .create_revision(
+                db=db,
+                draft_id=draft_id,
+                user_id=current_user.id,
+                expected_revision=(
+                    payload.expected_revision
+                ),
+                content=payload.content,
+                created_by_actor="user",
+                created_by_user_id=(
+                    current_user.id
+                ),
+            )
         )
 
     except ReplyDraftNotFoundError as error:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
             detail=REPLY_DRAFT_NOT_FOUND,
         ) from error
 
@@ -153,16 +180,23 @@ def approve_reply_draft(
     db: Session = Depends(get_db),
 ) -> ReplyDraftRead:
     try:
-        return reply_draft_service.approve(
-            db=db,
-            draft_id=draft_id,
-            user_id=current_user.id,
-            expected_revision=payload.expected_revision,
+        return (
+            reply_draft_service
+            .approve(
+                db=db,
+                draft_id=draft_id,
+                user_id=current_user.id,
+                expected_revision=(
+                    payload.expected_revision
+                ),
+            )
         )
 
     except ReplyDraftNotFoundError as error:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
             detail=REPLY_DRAFT_NOT_FOUND,
         ) from error
 
@@ -186,17 +220,24 @@ def reject_reply_draft(
     db: Session = Depends(get_db),
 ) -> ReplyDraftRead:
     try:
-        return reply_draft_service.reject(
-            db=db,
-            draft_id=draft_id,
-            user_id=current_user.id,
-            expected_revision=payload.expected_revision,
-            reason=payload.reason,
+        return (
+            reply_draft_service
+            .reject(
+                db=db,
+                draft_id=draft_id,
+                user_id=current_user.id,
+                expected_revision=(
+                    payload.expected_revision
+                ),
+                reason=payload.reason,
+            )
         )
 
     except ReplyDraftNotFoundError as error:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
             detail=REPLY_DRAFT_NOT_FOUND,
         ) from error
 
@@ -220,17 +261,57 @@ def send_reply_draft(
     db: Session = Depends(get_db),
 ) -> ReplyDraftRead:
     try:
-        return reply_draft_service.send_approved(
-            db=db,
-            draft_id=draft_id,
-            user_id=current_user.id,
-            expected_revision=payload.expected_revision,
+        return (
+            reply_draft_service
+            .send_approved(
+                db=db,
+                draft_id=draft_id,
+                user_id=current_user.id,
+                expected_revision=(
+                    payload.expected_revision
+                ),
+                idempotency_key=(
+                    payload.idempotency_key
+                ),
+            )
         )
 
     except ReplyDraftNotFoundError as error:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
             detail=REPLY_DRAFT_NOT_FOUND,
+        ) from error
+
+    except GmailCommandConflictError as error:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_409_CONFLICT
+            ),
+            detail=(
+                GMAIL_IDEMPOTENCY_CONFLICT
+            ),
+        ) from error
+
+    except GmailCommandInProgressError as error:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_409_CONFLICT
+            ),
+            detail=GMAIL_SEND_IN_PROGRESS,
+        ) from error
+
+    except (
+        GmailCommandOutcomeUncertainError
+    ) as error:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_409_CONFLICT
+            ),
+            detail=(
+                GMAIL_SEND_OUTCOME_UNCERTAIN
+            ),
         ) from error
 
     except (

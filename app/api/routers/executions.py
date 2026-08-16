@@ -9,18 +9,27 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_user
-from app.core.public_errors import (
-    EXECUTION_IDEMPOTENCY_CONFLICT,
-    EXECUTION_RECOVERY_NOT_ALLOWED,
-    EXECUTION_STILL_ACTIVE,
+from app.api.dependencies import (
+    get_current_user,
 )
-
+from app.core.config import get_settings
 from app.core.exceptions import (
     ExecutionNotFoundError,
     ExecutionStillActiveError,
     IdempotencyConflictError,
     RecoveryNotAllowedError,
+)
+from app.core.public_errors import (
+    EXECUTION_IDEMPOTENCY_CONFLICT,
+    EXECUTION_RECOVERY_NOT_ALLOWED,
+    EXECUTION_STILL_ACTIVE,
+    RATE_LIMIT_EXCEEDED,
+    RATE_LIMIT_UNAVAILABLE,
+)
+from app.core.rate_limit import (
+    RateLimitExceeded,
+    RateLimitUnavailable,
+    enforce_rate_limit,
 )
 from app.db.session import get_db
 from app.models.enums import ExecutionStatus
@@ -44,7 +53,9 @@ from app.services.execution.execution_event_service import (
 from app.services.execution.execution_recovery_service import (
     require_recoverable_execution_for_user,
 )
-from app.worker.tasks import run_execution_task
+from app.worker.tasks import (
+    run_execution_task,
+)
 
 
 router = APIRouter()
@@ -66,6 +77,44 @@ def create_execution(
     ),
     db: Session = Depends(get_db),
 ) -> ExecutionRead:
+    settings = get_settings()
+
+    try:
+        enforce_rate_limit(
+            user_id=current_user.id,
+            route_name="execution:create",
+            limit=(
+                settings
+                .execution_create_rate_limit
+            ),
+            window_seconds=(
+                settings
+                .execution_create_rate_window_seconds
+            ),
+        )
+
+    except RateLimitExceeded as error:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_429_TOO_MANY_REQUESTS
+            ),
+            detail=RATE_LIMIT_EXCEEDED,
+            headers={
+                "Retry-After": str(
+                    error.retry_after
+                ),
+            },
+        ) from error
+
+    except RateLimitUnavailable as error:
+        raise HTTPException(
+            status_code=(
+                status
+                .HTTP_503_SERVICE_UNAVAILABLE
+            ),
+            detail=RATE_LIMIT_UNAVAILABLE,
+        ) from error
+
     try:
         execution, created = (
             project_service.create_execution(
@@ -81,6 +130,7 @@ def create_execution(
             response.status_code = (
                 status.HTTP_200_OK
             )
+
             return execution
 
         try:
@@ -122,7 +172,9 @@ def create_execution(
 
     except IdempotencyConflictError as error:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
+            status_code=(
+                status.HTTP_409_CONFLICT
+            ),
             detail=(
                 EXECUTION_IDEMPOTENCY_CONFLICT
             ),
@@ -130,8 +182,12 @@ def create_execution(
 
     except ValueError as error:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project or workflow not found",
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=(
+                "Project or workflow not found"
+            ),
         ) from error
 
 
@@ -161,8 +217,12 @@ def list_executions(
 
     except ValueError as error:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Project or workflow not found",
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
+            detail=(
+                "Project or workflow not found"
+            ),
         ) from error
 
 
@@ -178,15 +238,19 @@ def get_execution_detail(
     db: Session = Depends(get_db),
 ) -> ExecutionDetail:
     try:
-        return project_service.get_execution(
-            db=db,
-            execution_id=execution_id,
-            user_id=current_user.id,
+        return (
+            project_service.get_execution(
+                db=db,
+                execution_id=execution_id,
+                user_id=current_user.id,
+            )
         )
 
     except ValueError as error:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
             detail="Execution not found",
         ) from error
 
@@ -214,7 +278,9 @@ def get_execution_events(
 
     except ValueError as error:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
             detail="Execution not found",
         ) from error
 
@@ -245,19 +311,25 @@ def resume_execution(
 
     except ExecutionNotFoundError as error:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=(
+                status.HTTP_404_NOT_FOUND
+            ),
             detail="Execution not found",
         ) from error
 
     except ExecutionStillActiveError as error:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
+            status_code=(
+                status.HTTP_409_CONFLICT
+            ),
             detail=EXECUTION_STILL_ACTIVE,
         ) from error
 
     except RecoveryNotAllowedError as error:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
+            status_code=(
+                status.HTTP_409_CONFLICT
+            ),
             detail=(
                 EXECUTION_RECOVERY_NOT_ALLOWED
             ),

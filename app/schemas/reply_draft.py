@@ -105,6 +105,11 @@ class ReplyDraftSendCreate(
         ge=1,
     )
 
+    idempotency_key: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+    )
 
 class ReplyDraftRevisionRead(BaseModel):
     id: UUID

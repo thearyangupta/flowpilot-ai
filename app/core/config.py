@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     redis_broker_url: str = "redis://localhost:6379/0"
     redis_result_url: str = "redis://localhost:6379/1"
 
+    redis_rate_limit_url: str = "redis://localhost:6379/2"
+
+    execution_create_rate_limit: int = 10
+    execution_create_rate_window_seconds: int = 60
+
     jwt_secret: str
     jwt_issuer: str = "flowpilot-api"
     jwt_audience: str = "flowpilot-client"

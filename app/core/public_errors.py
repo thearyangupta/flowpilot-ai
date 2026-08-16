@@ -39,3 +39,24 @@ UPLOAD_TOO_LARGE = (
 UPLOAD_TYPE_UNSUPPORTED = (
     "Unsupported upload content type."
 )
+
+RATE_LIMIT_EXCEEDED = (
+    "Rate limit exceeded. Please try again later."
+)
+
+RATE_LIMIT_UNAVAILABLE = (
+    "Request limiting service is temporarily unavailable."
+)
+
+GMAIL_IDEMPOTENCY_CONFLICT = (
+    "Idempotency key was already used for a different Gmail command."
+)
+
+GMAIL_SEND_IN_PROGRESS = (
+    "This Gmail send command is already in progress."
+)
+
+GMAIL_SEND_OUTCOME_UNCERTAIN = (
+    "The previous Gmail send outcome is uncertain. "
+    "Automatic retry has been blocked to avoid a duplicate email."
+)

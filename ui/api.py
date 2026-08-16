@@ -619,6 +619,11 @@ class FlowPilotClient:
         draft_id: str,
         expected_revision: int,
     ) -> dict[str, Any]:
+        idempotency_key = (
+            f"reply-draft:{draft_id}:"
+            f"revision:{expected_revision}:send"
+        )
+
         result = self.request(
             "POST",
             (
@@ -626,7 +631,10 @@ class FlowPilotClient:
                 f"{draft_id}/send"
             ),
             json={
-                "expected_revision": expected_revision,
+                "expected_revision":
+                    expected_revision,
+                "idempotency_key":
+                    idempotency_key,
             },
         )
 
