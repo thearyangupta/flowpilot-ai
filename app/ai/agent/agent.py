@@ -10,8 +10,8 @@ from langchain_core.messages import (
     HumanMessage,
 )
 
-from app.ai.agent.tools import (
-    FLOWPILOT_AGENT_TOOLS,
+from app.ai.agent.mcp_tools import (
+    MCP_AGENT_TOOLS,
 )
 from uuid import UUID
 
@@ -46,7 +46,7 @@ def build_agent(
     tools: list[Any] | None = None,
 ):
     agent_tools = (
-        FLOWPILOT_AGENT_TOOLS
+        MCP_AGENT_TOOLS
         if tools is None
         else tools
     )
@@ -64,11 +64,16 @@ def build_flowpilot_agent(
     user_id: UUID,
     settings: Settings,
 ):
-    tools = build_flowpilot_tools(
+    flowpilot_tools = build_flowpilot_tools(
         db=db,
         user_id=user_id,
         settings=settings,
     )
+
+    tools = [
+        *flowpilot_tools,
+        *MCP_AGENT_TOOLS,
+    ]
 
     return build_agent(
         model=model,
