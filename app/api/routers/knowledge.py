@@ -23,7 +23,10 @@ from app.services.knowledge.extraction_service import (
     DocumentExtractionError,
     extract_text,
 )
-from app.services.knowledge.storage_service import storage
+from app.services.knowledge.storage_service import (
+    StorageError,
+    get_storage_service,
+)
 from app.services.knowledge.tokenizer import WhitespaceTokenizer
 from app.worker.tasks import embed_document_task
 
@@ -99,6 +102,8 @@ async def upload_document(
         if existing_document is not None:
             return existing_document
 
+        storage = get_storage_service()
+
         storage_key = storage.put_private(
             user_id=current_user.id,
             checksum=checksum,
@@ -163,4 +168,17 @@ async def upload_document(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Document text extraction failed.",
+        ) from error
+
+    except StorageError as error:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=(
+                status.HTTP_503_SERVICE_UNAVAILABLE
+            ),
+            detail=(
+                "Knowledge storage is temporarily "
+                "unavailable."
+            ),
         ) from error
