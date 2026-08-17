@@ -102,6 +102,15 @@ def invoke_agent(
         config={
             "recursion_limit":
                 AGENT_RECURSION_LIMIT,
+            "run_name":
+                "flowpilot_agent",
+            "tags":[
+                "flowpilot",
+                "react-agent",
+            ],
+            "metadata":{
+                "component":"agent-core",
+            },
         },
     )
 
