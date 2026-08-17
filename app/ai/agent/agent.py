@@ -13,7 +13,14 @@ from langchain_core.messages import (
 from app.ai.agent.tools import (
     FLOWPILOT_AGENT_TOOLS,
 )
+from uuid import UUID
 
+from sqlalchemy.orm import Session
+
+from app.ai.agent.flowpilot_tools import (
+    build_flowpilot_tools,
+)
+from app.core.config import Settings
 
 AGENT_SYSTEM_PROMPT = """
 You are the FlowPilot AI agent.
@@ -48,6 +55,24 @@ def build_agent(
         model=model,
         tools=agent_tools,
         system_prompt=AGENT_SYSTEM_PROMPT,
+    )
+
+def build_flowpilot_agent(
+    *,
+    model: BaseChatModel,
+    db: Session,
+    user_id: UUID,
+    settings: Settings,
+):
+    tools = build_flowpilot_tools(
+        db=db,
+        user_id=user_id,
+        settings=settings,
+    )
+
+    return build_agent(
+        model=model,
+        tools=tools,
     )
 
 
