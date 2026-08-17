@@ -432,3 +432,61 @@ def test_409_preserves_safe_api_error_message() -> None:
 
     finally:
         client.close()
+
+
+def test_agent_chat_sends_message() -> None:
+    def handler(
+        request: httpx.Request,
+    ) -> httpx.Response:
+        assert request.method == "POST"
+
+        assert request.url.path == (
+            "/api/v1/agent/chat"
+        )
+
+        import json
+
+        payload = json.loads(
+            request.content.decode(
+                "utf-8"
+            )
+        )
+
+        assert payload == {
+            "message": (
+                "What is the status "
+                "of ORD-123456?"
+            )
+        }
+
+        return httpx.Response(
+            200,
+            json={
+                "message": (
+                    "Order ORD-123456 "
+                    "is shipped."
+                ),
+            },
+        )
+
+    client = make_client(
+        handler
+    )
+
+    try:
+        response = (
+            client.chat_with_agent(
+                (
+                    "What is the status "
+                    "of ORD-123456?"
+                )
+            )
+        )
+
+        assert response == (
+            "Order ORD-123456 "
+            "is shipped."
+        )
+
+    finally:
+        client.close()

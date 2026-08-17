@@ -116,9 +116,13 @@ with st.sidebar:
 
 pages = [
     st.Page(
+        "pages/agent.py",
+        title="Agent",
+        default=True,
+    ),
+    st.Page(
         "pages/home.py",
         title="Home",
-        default=True,
     ),
     st.Page(
         "pages/workflows.py",

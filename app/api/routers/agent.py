@@ -1,6 +1,10 @@
 from fastapi import (
     APIRouter,
     Depends,
+    HTTPException,
+)
+from langchain_google_genai.chat_models import (
+    ChatGoogleGenerativeAIError,
 )
 from sqlalchemy.orm import Session
 
@@ -31,6 +35,33 @@ router = APIRouter(
 )
 
 
+def extract_agent_text(
+    content: object,
+) -> str:
+    if isinstance(content, str):
+        return content
+
+    if isinstance(content, list):
+        text_parts: list[str] = []
+
+        for item in content:
+            if not isinstance(item, dict):
+                continue
+
+            if item.get("type") != "text":
+                continue
+
+            text = item.get("text")
+
+            if isinstance(text, str):
+                text_parts.append(text)
+
+        if text_parts:
+            return "\n".join(text_parts)
+
+    return str(content)
+
+
 @router.post(
     "/chat",
     response_model=AgentChatResponse,
@@ -56,19 +87,49 @@ def chat_with_agent(
         settings=settings,
     )
 
-    result = agent.invoke(
-        {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": payload.message,
-                }
-            ]
-        }
-    )
+    try:
+        result = agent.invoke(
+            {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": payload.message,
+                    }
+                ]
+            }
+        )
 
-    final_message = result["messages"][-1]
+    except ChatGoogleGenerativeAIError as error:
+        error_message = str(error)
+
+        if (
+            "RESOURCE_EXHAUSTED"
+            in error_message
+            or "429" in error_message
+        ):
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "The AI model has reached its "
+                    "current usage limit. "
+                    "Please try again later."
+                ),
+            ) from error
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "The AI model is temporarily "
+                "unavailable."
+            ),
+        ) from error
+
+    final_message = result[
+        "messages"
+    ][-1]
 
     return AgentChatResponse(
-        message=str(final_message.content),
+        message=extract_agent_text(
+            final_message.content
+        ),
     )

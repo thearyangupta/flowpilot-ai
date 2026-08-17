@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from uuid import UUID
-
+import logging
 from sqlalchemy.orm import Session
 
 from app.core.cipher import TextCipher
@@ -46,6 +46,7 @@ from app.services.auth.oauth_token_service import (
     ensure_granted_google_scopes,
 )
 
+logger = logging.getLogger(__name__)
 
 class OAuthCallbackError(Exception):
     pass
@@ -142,6 +143,10 @@ def complete_google_oauth_callback(
         GoogleIdentityMismatchError,
         UnsupportedOAuthPurposeError,
     ) as error:
+        logger.exception(
+            "Google 0Auth callback failed: %s",
+            type(error).__name__,
+        )
         raise OAuthCallbackError(
             "Google OAuth callback could not be completed."
         ) from error

@@ -27,6 +27,7 @@ def verify_google_id_token(
             raw_id_token,
             google_requests.Request(),
             settings.google_client_id,
+            clock_skew_in_seconds=5,
         )
     except Exception as error:
         raise GoogleIdentityVerificationError(

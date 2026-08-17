@@ -170,6 +170,44 @@ class FlowPilotClient:
 
         return authorization_url
 
+
+    def chat_with_agent(
+        self,
+        message: str,
+    ) -> str:
+        result = self.request(
+            "POST",
+            "/api/v1/agent/chat",
+            json={
+                "message": message,
+            },
+            timeout=60.0,
+        )
+
+        if not isinstance(result, dict):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        response_message = result.get(
+            "message"
+        )
+
+        if (
+            not isinstance(
+                response_message,
+                str,
+            )
+            or not response_message
+        ):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        return response_message
+
     def get_projects(self) -> list[dict[str, Any]]:
         result = self.request(
             "GET",
