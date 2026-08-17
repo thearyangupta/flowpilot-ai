@@ -9,6 +9,10 @@ import httpx
 
 DEFAULT_API_BASE_URL = "http://127.0.0.1:8000"
 
+DEFAULT_BROWSER_API_BASE_URL = (
+    "http://localhost:8000"
+)
+
 TokenGetter = Callable[[], str | None]
 
 
@@ -708,6 +712,12 @@ def _safe_error_message(
         return detail
 
     return "Request failed"
+
+def get_browser_api_base_url() -> str:
+    return os.getenv(
+        "FLOWPILOT_BROWSER_API_BASE_URL",
+        DEFAULT_BROWSER_API_BASE_URL,
+    ).rstrip("/")
 
 
 def get_api_base_url() -> str:

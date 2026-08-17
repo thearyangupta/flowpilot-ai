@@ -1,4 +1,3 @@
-from urllib.parse import urlencode
 from fastapi.responses import RedirectResponse
 from app.core.config import get_settings
 
@@ -151,29 +150,35 @@ def finish_google_oauth(
         db.commit()
 
         if result.purpose == OAuthPurpose.LOGIN:
-            if not result.login_code:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Login code was not generated.",
-                )
-
             settings = get_settings()
 
-            query = urlencode(
-                {
-                    "login_code": result.login_code,
-                }
+            access_token = create_access_token(
+                result.user.id
             )
 
             redirect_url = (
-                f"{settings.streamlit_app_url.rstrip('/')}"
-                f"/?{query}"
+                f"{settings.streamlit_app_url.rstrip('/')}/"
             )
 
-            return RedirectResponse(
+            response = RedirectResponse(
                 url=redirect_url,
                 status_code=status.HTTP_302_FOUND,
             )
+
+            response.set_cookie(
+                key=settings.auth_cookie_name,
+                value=access_token,
+                max_age=(
+                    settings.jwt_access_token_minutes
+                    * 60
+                ),
+                httponly=True,
+                secure=settings.auth_cookie_secure,
+                samesite=settings.auth_cookie_samesite,
+                path="/",
+            )
+
+            return response
 
         return GoogleOAuthCallbackRead(
             status="gmail_connected",
@@ -226,3 +231,27 @@ def exchange_login_code(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Login code is invalid or expired.",
         ) from error
+
+@router.get(
+    "/auth/logout",
+    tags=["authentication"],
+)
+def logout():
+    settings = get_settings()
+
+    response = RedirectResponse(
+        url=(
+            f"{settings.streamlit_app_url.rstrip('/')}/"
+        ),
+        status_code=status.HTTP_302_FOUND,
+    )
+
+    response.delete_cookie(
+        key=settings.auth_cookie_name,
+        path="/",
+        secure=settings.auth_cookie_secure,
+        httponly=True,
+        samesite=settings.auth_cookie_samesite,
+    )
+
+    return response

@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_access_token_minutes: int = 15
 
+    auth_cookie_name: str = "flowpilot_session"
+    auth_cookie_secure: bool = False
+    auth_cookie_samesite: str = "lax"
+
     token_encryption_keys: str
 
     model_config = SettingsConfigDict(

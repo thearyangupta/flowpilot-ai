@@ -7,6 +7,7 @@ from ui.api import (
     FlowPilotClient,
     SessionExpired,
     get_api_base_url,
+    get_browser_api_base_url,
 )
 from ui.session import (
     AUTH_ACCESS_TOKEN_KEY,
@@ -171,15 +172,17 @@ with st.sidebar:
 
     st.divider()
 
-    if st.button(
+    logout_url = (
+    f"{get_browser_api_base_url()}"
+    "/api/v1/auth/logout"
+)
+
+    st.link_button(
         "Logout",
-        key="auth.logout",
+        logout_url,
         icon=":material/logout:",
         use_container_width=True,
-    ):
-        clear_session_state()
-
-        st.rerun()
+    )
 
 
 pages = [
