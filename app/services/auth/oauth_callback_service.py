@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+﻿from dataclasses import dataclass
 from uuid import UUID
 import logging
 from sqlalchemy.orm import Session
@@ -125,9 +125,14 @@ def complete_google_oauth_callback(
                 required_scopes=GOOGLE_GMAIL_SCOPES,
             )
 
+            if attempt.workflow_id is None:
+                raise OAuthCallbackError(
+                    "Gmail authorization attempt has no workflow."
+                )
             return _complete_gmail_connect_callback(
                 db=db,
                 user_id=attempt.user_id,
+                workflow_id=attempt.workflow_id,
                 identity=google_identity,
                 token_data=google_token_data,
                 cipher=cipher,
@@ -187,6 +192,7 @@ def _complete_gmail_connect_callback(
     db: Session,
     *,
     user_id: UUID,
+    workflow_id: UUID,
     identity: GoogleIdentity,
     token_data: GoogleTokenData,
     cipher: TextCipher,
@@ -195,7 +201,7 @@ def _complete_gmail_connect_callback(
         db=db,
         user_id=user_id,
     )
-
+    connection.workflow_id = workflow_id
     ensure_google_identity_matches(
         connection,
         provider_subject=identity.subject,

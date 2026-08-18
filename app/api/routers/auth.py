@@ -1,9 +1,11 @@
 from fastapi.responses import RedirectResponse
 from app.core.config import get_settings
-
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-
+from app.models.workflow import Workflow
+from app.models.project import Project
+from sqlalchemy import select
 from app.core.cipher import get_token_cipher
 from app.core.oauth import (
     GOOGLE_GMAIL_SCOPES,
@@ -70,16 +72,34 @@ def start_google_oauth(
             detail="Google authorization could not be started.",
         ) from error
 
-
 @router.get(
     "/integrations/gmail/connect",
     response_model=GoogleOAuthStartRead,
     tags=["integrations"],
 )
 def connect_gmail(
+    workflow_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> GoogleOAuthStartRead:
+    workflow = db.scalar(
+        select(Workflow)
+        .join(
+            Project,
+            Workflow.project_id == Project.id,
+        )
+        .where(
+            Workflow.id == workflow_id,
+            Project.user_id == current_user.id,
+        )
+    )
+
+    if workflow is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workflow not found.",
+        )
+
     requested_scopes = (
         GOOGLE_IDENTITY_SCOPES
         + GOOGLE_GMAIL_SCOPES
@@ -92,6 +112,7 @@ def connect_gmail(
             purpose=OAuthPurpose.GMAIL_CONNECT,
             requested_scopes=requested_scopes,
             user_id=current_user.id,
+            workflow_id=workflow.id,
         )
 
         db.commit()
@@ -110,7 +131,6 @@ def connect_gmail(
                 "Gmail authorization could not be started."
             ),
         ) from error
-
 
 @router.get(
     "/auth/google/callback",

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
+from googleapiclient.errors import HttpError
 from sqlalchemy.orm import Session
 
 from app.services.google.google_provider_service import (
@@ -31,6 +32,17 @@ class GmailMessageListError(GmailPollError):
 
 class GmailMessageRetrievalError(GmailPollError):
     """Raised when a Gmail message cannot be retrieved."""
+
+
+class GmailMessageNotFoundError(
+    GmailMessageRetrievalError
+):
+    """
+    Raised when a Gmail history message no longer exists.
+
+    Gmail history may reference a message that is deleted or
+    otherwise unavailable before FlowPilot retrieves it.
+    """
 
 
 class GmailHistoryCursorError(GmailPollError):
@@ -127,7 +139,9 @@ def list_gmail_messages(
 
     return GmailMessagePage(
         messages=message_references,
-        next_page_token=response.get("nextPageToken"),
+        next_page_token=response.get(
+            "nextPageToken"
+        ),
     )
 
 
@@ -184,9 +198,19 @@ def get_gmail_message(
     Retrieve one complete Gmail message.
 
     Returns the raw Gmail API payload.
+
+    A Gmail history record may reference a message that no
+    longer exists by the time FlowPilot retrieves it. That
+    specific 404 case is exposed separately so the worker can
+    safely skip only that message and continue processing the
+    rest of the mailbox history.
     """
 
-    if not provider_message_id.strip():
+    normalized_message_id = (
+        provider_message_id.strip()
+    )
+
+    if not normalized_message_id:
         raise GmailMessageRetrievalError(
             "Provider message id is required."
         )
@@ -202,11 +226,31 @@ def get_gmail_message(
             .messages()
             .get(
                 userId="me",
-                id=provider_message_id,
+                id=normalized_message_id,
                 format="full",
             )
             .execute()
         )
+
+    except HttpError as error:
+        status = getattr(
+            getattr(
+                error,
+                "resp",
+                None,
+            ),
+            "status",
+            None,
+        )
+
+        if status == 404:
+            raise GmailMessageNotFoundError(
+                "Gmail message no longer exists."
+            ) from error
+
+        raise GmailMessageRetrievalError(
+            "Gmail message could not be retrieved."
+        ) from error
 
     except Exception as error:
         raise GmailMessageRetrievalError(
@@ -229,7 +273,9 @@ def poll_selected_messages(
     Production Gmail automation uses Gmail history polling.
     """
 
-    collected: list[GmailMessageReference] = []
+    collected: list[
+        GmailMessageReference
+    ] = []
 
     page_token: str | None = None
 
@@ -241,14 +287,20 @@ def poll_selected_messages(
             page_token=page_token,
         )
 
-        collected.extend(page.messages)
+        collected.extend(
+            page.messages
+        )
 
         if page.next_page_token is None:
             break
 
-        page_token = page.next_page_token
+        page_token = (
+            page.next_page_token
+        )
 
-    return tuple(collected)
+    return tuple(
+        collected
+    )
 
 
 def list_gmail_history(
@@ -258,7 +310,11 @@ def list_gmail_history(
     start_history_id: str,
     page_token: str | None = None,
 ) -> GmailHistoryPage:
-    if not start_history_id.strip():
+    normalized_history_id = (
+        start_history_id.strip()
+    )
+
+    if not normalized_history_id:
         raise GmailPollError(
             "A Gmail history id is required."
         )
@@ -274,30 +330,48 @@ def list_gmail_history(
             .history()
             .list(
                 userId="me",
-                startHistoryId=start_history_id,
+                startHistoryId=(
+                    normalized_history_id
+                ),
                 pageToken=page_token,
-                historyTypes=["messageAdded"],
+                historyTypes=[
+                    "messageAdded"
+                ],
             )
             .execute()
         )
 
-    except Exception as error:
+    except HttpError as error:
         status = getattr(
-            getattr(error, "resp", None),
+            getattr(
+                error,
+                "resp",
+                None,
+            ),
             "status",
             None,
         )
 
         if status == 404:
             raise GmailHistoryExpiredError(
-                "Saved Gmail history cursor is no longer valid."
+                (
+                    "Saved Gmail history cursor "
+                    "is no longer valid."
+                )
             ) from error
 
         raise GmailMessageListError(
             "Gmail history could not be listed."
         ) from error
 
-    collected: list[GmailHistoryMessage] = []
+    except Exception as error:
+        raise GmailMessageListError(
+            "Gmail history could not be listed."
+        ) from error
+
+    collected: list[
+        GmailHistoryMessage
+    ] = []
 
     for history_record in response.get(
         "history",
@@ -312,8 +386,10 @@ def list_gmail_history(
                 {},
             )
 
-            provider_message_id = message.get(
-                "id"
+            provider_message_id = (
+                message.get(
+                    "id"
+                )
             )
 
             if not provider_message_id:
@@ -325,7 +401,9 @@ def list_gmail_history(
                         provider_message_id
                     ),
                     provider_thread_id=(
-                        message.get("threadId")
+                        message.get(
+                            "threadId"
+                        )
                     ),
                 )
             )
@@ -335,15 +413,21 @@ def list_gmail_history(
     )
 
     history_id = (
-        str(history_id_raw)
+        str(
+            history_id_raw
+        )
         if history_id_raw is not None
         else None
     )
 
     return GmailHistoryPage(
-        messages=tuple(collected),
+        messages=tuple(
+            collected
+        ),
         next_page_token=(
-            response.get("nextPageToken")
+            response.get(
+                "nextPageToken"
+            )
         ),
         history_id=history_id,
     )
@@ -363,22 +447,43 @@ def poll_gmail_history(
     may mention the same message in multiple history records.
     """
 
-    collected: list[GmailHistoryMessage] = []
-    seen_message_ids: set[str] = set()
+    normalized_history_id = (
+        start_history_id.strip()
+    )
+
+    if not normalized_history_id:
+        raise GmailPollError(
+            "A Gmail history id is required."
+        )
+
+    collected: list[
+        GmailHistoryMessage
+    ] = []
+
+    seen_message_ids: set[
+        str
+    ] = set()
 
     page_token: str | None = None
-    latest_history_id = start_history_id
+
+    latest_history_id = (
+        normalized_history_id
+    )
 
     while True:
         page = list_gmail_history(
             db=db,
             user_id=user_id,
-            start_history_id=start_history_id,
+            start_history_id=(
+                normalized_history_id
+            ),
             page_token=page_token,
         )
 
         if page.history_id:
-            latest_history_id = page.history_id
+            latest_history_id = (
+                page.history_id
+            )
 
         for message in page.messages:
             if (
@@ -398,9 +503,13 @@ def poll_gmail_history(
         if page.next_page_token is None:
             break
 
-        page_token = page.next_page_token
+        page_token = (
+            page.next_page_token
+        )
 
     return GmailHistoryPollResult(
-        messages=tuple(collected),
+        messages=tuple(
+            collected
+        ),
         history_id=latest_history_id,
     )

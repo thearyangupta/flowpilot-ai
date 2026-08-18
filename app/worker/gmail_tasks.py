@@ -22,6 +22,7 @@ from app.services.google.gmail_message_service import (
 )
 from app.services.google.gmail_poll_service import (
     GmailHistoryExpiredError,
+    GmailMessageNotFoundError,
     get_gmail_history_cursor,
     get_gmail_message,
     poll_gmail_history,
@@ -119,14 +120,33 @@ def poll_connected_accounts() -> None:
                 for message_reference in (
                     history.messages
                 ):
-                    raw_message = get_gmail_message(
-                        db=db,
-                        user_id=user_id,
-                        provider_message_id=(
-                            message_reference
-                            .provider_message_id
-                        ),
-                    )
+                    try:
+                        raw_message = (
+                            get_gmail_message(
+                                db=db,
+                                user_id=user_id,
+                                provider_message_id=(
+                                    message_reference
+                                    .provider_message_id
+                                ),
+                            )
+                        )
+
+                    except GmailMessageNotFoundError:
+                        logger.info(
+                            (
+                                "Skipping missing Gmail "
+                                "history message %s for "
+                                "connection %s."
+                            ),
+                            (
+                                message_reference
+                                .provider_message_id
+                            ),
+                            connection.id,
+                        )
+
+                        continue
 
                     label_ids = set(
                         raw_message.get(

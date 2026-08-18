@@ -1,4 +1,4 @@
-from datetime import datetime
+﻿from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, LargeBinary, String, UniqueConstraint,ForeignKey
@@ -27,6 +27,14 @@ class OAuthAttempt(TimestampMixin, Base):
     user_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=True,
+    )
+    workflow_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey(
+            "workflows.id",
+            ondelete="CASCADE",
+        ),
+        nullable=True,
+        index=True,
     )
 
     purpose: Mapped[str] = mapped_column(

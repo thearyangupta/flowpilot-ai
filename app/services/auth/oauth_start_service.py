@@ -38,11 +38,13 @@ def create_google_oauth_start(
     purpose: OAuthPurpose,
     requested_scopes: tuple[str, ...],
     user_id: UUID | None = None,
+    workflow_id: UUID | None = None,
 ) -> OAuthStartResult:
     _validate_oauth_start(
         purpose=purpose,
         requested_scopes=requested_scopes,
         user_id=user_id,
+        workflow_id=workflow_id,
     )
 
     settings = get_settings()
@@ -64,6 +66,7 @@ def create_google_oauth_start(
 
     attempt = OAuthAttempt(
         user_id=user_id,
+        workflow_id=workflow_id,
         purpose=purpose.value,
         requested_scopes=list(requested_scopes),
         state_hash=hash_oauth_state(state),
@@ -106,6 +109,7 @@ def _validate_oauth_start(
     purpose: OAuthPurpose,
     requested_scopes: tuple[str, ...],
     user_id: UUID | None,
+    workflow_id: UUID | None,
 ) -> None:
     if not requested_scopes:
         raise OAuthStartError(
@@ -133,4 +137,21 @@ def _validate_oauth_start(
         raise OAuthStartError(
             "Gmail authorization requires an "
             "authenticated user."
+        )
+
+    if (
+        purpose == OAuthPurpose.LOGIN
+        and workflow_id is not None
+    ):
+        raise OAuthStartError(
+            "Login authorization must not be bound "
+            "to a workflow."
+        )
+
+    if (
+        purpose == OAuthPurpose.GMAIL_CONNECT
+        and workflow_id is None
+    ):
+        raise OAuthStartError(
+            "Gmail authorization requires a workflow."
         )

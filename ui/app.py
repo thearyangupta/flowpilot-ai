@@ -152,22 +152,14 @@ with st.sidebar:
         """
     )
 
-    try:
-        gmail_authorization_url = (
-            api.gmail_connect_url()
-        )
-
-        st.link_button(
-            "Gmail",
-            gmail_authorization_url,
-            icon=":material/mail:",
-            use_container_width=True,
-        )
-
-    except ApiError as error:
-        st.caption(
-            f"Gmail unavailable: "
-            f"{error.message}"
+    if st.button(
+        "Gmail",
+        icon=":material/mail:",
+        use_container_width=True,
+        key="sidebar.gmail",
+    ):
+        st.switch_page(
+            "pages/workflows.py"
         )
 
     st.divider()

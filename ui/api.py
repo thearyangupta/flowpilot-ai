@@ -147,10 +147,16 @@ class FlowPilotClient:
 
 
 
-    def gmail_connect_url(self) -> str:
+    def gmail_connect_url(
+        self,
+        workflow_id: str,
+    ) -> str:
         result = self.request(
             "GET",
             "/api/v1/integrations/gmail/connect",
+            params={
+                "workflow_id": workflow_id,
+            },
         )
 
         if not isinstance(result, dict):

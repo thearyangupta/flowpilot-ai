@@ -13,7 +13,9 @@ from ui.session import (
     clear_session_state,
 )
 
+
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
 
 def page_api() -> FlowPilotClient:
     return FlowPilotClient(
@@ -27,16 +29,36 @@ def page_api() -> FlowPilotClient:
 st.title("Knowledge")
 
 st.write(
-    "Upload documents that FlowPilot can use as "
-    "grounding knowledge."
+    (
+        "Upload business documents that FlowPilot uses "
+        "to generate grounded AI replies."
+    )
+)
+
+st.info(
+    (
+        "Gmail reply automation requires at least one "
+        "ready knowledge document. FlowPilot uses your "
+        "knowledge base instead of inventing policies, "
+        "prices, procedures, or other business facts."
+    ),
+    icon=":material/info:",
+)
+
+st.caption(
+    (
+        "Recommended demo flow: upload knowledge → "
+        "create a workflow → connect Gmail → send a test "
+        "email → review the generated draft in Approvals."
+    )
 )
 
 api = page_api()
 
 
-# ---------------------------------------------------------
+
 # Upload form
-# ---------------------------------------------------------
+
 
 with st.form(
     "knowledge.upload",
@@ -45,6 +67,11 @@ with st.form(
     uploaded_file = st.file_uploader(
         "Knowledge document",
         type=["pdf", "txt", "md"],
+        help=(
+            "Upload policies, FAQs, support instructions, "
+            "product information, or other facts FlowPilot "
+            "may use when writing replies."
+        ),
     )
 
     submitted = st.form_submit_button(
@@ -61,7 +88,7 @@ if submitted:
 
     elif uploaded_file.size > MAX_UPLOAD_BYTES:
         st.error(
-            "Uploaded file exceeds the 10MB limit"
+            "Uploaded file exceeds the 10MB limit."
         )
 
     else:
@@ -87,15 +114,30 @@ if submitted:
                 f"Uploaded {document['name']}."
             )
 
-            st.write(
-                "Status:",
-                document["status"],
-            )
+            document_status = document["status"]
+
+            if document_status == "ready":
+                st.success(
+                    (
+                        "Knowledge is ready. FlowPilot can "
+                        "now use this document when creating "
+                        "grounded Gmail replies."
+                    )
+                )
+
+            else:
+                st.info(
+                    (
+                        f"Current status: {document_status}. "
+                        "FlowPilot will use this document "
+                        "after processing is complete."
+                    )
+                )
 
 
-# ---------------------------------------------------------
+
 # Knowledge documents
-# ---------------------------------------------------------
+
 
 st.divider()
 
@@ -103,7 +145,6 @@ st.subheader("Your knowledge documents")
 
 try:
     documents = api.list_knowledge_documents()
-
 
 except SessionExpired:
     clear_session_state()
@@ -113,9 +154,20 @@ except ApiError as error:
     st.error(error.message)
 
 else:
+    ready_documents = [
+        document
+        for document in documents
+        if document.get("status") == "ready"
+    ]
+
     if not documents:
-        st.info(
-            "No knowledge documents uploaded yet."
+        st.warning(
+            (
+                "No knowledge documents are available yet. "
+                "Upload at least one document before testing "
+                "AI Gmail reply generation."
+            ),
+            icon=":material/warning:",
         )
 
     else:
@@ -125,4 +177,34 @@ else:
 
             st.write(
                 f"**{name}** — `{document_status}`"
+            )
+
+        st.divider()
+
+        if ready_documents:
+            st.success(
+                (
+                    f"{len(ready_documents)} knowledge "
+                    "document(s) ready for grounded AI "
+                    "replies."
+                ),
+                icon=":material/check_circle:",
+            )
+
+            if st.button(
+                "Continue to Workflows",
+                type="primary",
+                key="knowledge.continue",
+            ):
+                st.switch_page(
+                    "pages/workflows.py"
+                )
+
+        else:
+            st.info(
+                (
+                    "Your documents are still processing. "
+                    "Wait until at least one document shows "
+                    "`ready` before testing Gmail replies."
+                )
             )

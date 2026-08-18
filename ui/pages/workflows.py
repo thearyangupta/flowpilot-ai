@@ -27,6 +27,7 @@ st.title("Workflows")
 
 api = page_api()
 
+
 # Projects
 
 
@@ -64,9 +65,7 @@ if not projects:
         )
 
     if create_project_submitted:
-        cleaned_name = (
-            project_name.strip()
-        )
+        cleaned_name = project_name.strip()
 
         if not cleaned_name:
             st.error(
@@ -96,7 +95,9 @@ project_options = {
     for project in projects
 }
 
+
 # Create workflow
+
 
 with st.form(
     "workflow.create",
@@ -104,7 +105,9 @@ with st.form(
 ):
     project_label = st.selectbox(
         "Project",
-        options=list(project_options.keys()),
+        options=list(
+            project_options.keys()
+        ),
         key="workflow.project",
     )
 
@@ -122,7 +125,9 @@ with st.form(
 
     template_label = st.selectbox(
         "Starting template",
-        options=list(TEMPLATES.keys()),
+        options=list(
+            TEMPLATES.keys()
+        ),
         key="workflow.template",
     )
 
@@ -148,9 +153,13 @@ if submitted:
     else:
         try:
             api.create_workflow(
-                project_id=selected_project_id,
+                project_id=(
+                    selected_project_id
+                ),
                 name=cleaned_name,
-                description=description.strip(),
+                description=(
+                    description.strip()
+                ),
                 template=TEMPLATES[
                     template_label
                 ],
@@ -164,6 +173,8 @@ if submitted:
                 "Workflow created"
             )
             st.rerun()
+
+
 
 # Existing workflows
 
@@ -210,3 +221,163 @@ else:
         use_container_width=True,
         hide_index=True,
     )
+
+
+    # Gmail automation binding
+
+
+    st.divider()
+
+    st.subheader(
+        "Gmail automation"
+    )
+
+    st.caption(
+        (
+            "Connect Gmail to a workflow so new incoming "
+            "emails can be processed automatically."
+        )
+    )
+
+
+    # Knowledge readiness
+
+    try:
+        knowledge_documents = (
+            api.list_knowledge_documents()
+        )
+
+    except ApiError as error:
+        knowledge_documents = []
+
+        st.warning(
+            (
+                "FlowPilot could not check knowledge "
+                f"readiness: {error.message}"
+            )
+        )
+
+    ready_knowledge_documents = [
+        document
+        for document in knowledge_documents
+        if document.get("status") == "ready"
+    ]
+
+    if ready_knowledge_documents:
+        st.success(
+            (
+                f"{len(ready_knowledge_documents)} knowledge "
+                "document(s) ready. FlowPilot can generate "
+                "grounded Gmail reply drafts."
+            ),
+            icon=":material/check_circle:",
+        )
+
+    else:
+        st.warning(
+            (
+                "Knowledge required for AI replies. "
+                "Upload at least one knowledge document "
+                "before testing Gmail reply generation."
+            ),
+            icon=":material/warning:",
+        )
+
+        st.caption(
+            (
+                "You can connect Gmail now, but FlowPilot "
+                "will not create a grounded reply draft "
+                "until supporting knowledge is ready."
+            )
+        )
+
+        if st.button(
+            "Go to Knowledge",
+            key="gmail.go_to_knowledge",
+        ):
+            st.switch_page(
+                "pages/knowledge.py"
+            )
+
+    st.markdown(
+        """
+**Quick demo**
+
+1. Upload a knowledge document
+2. Connect Gmail to this workflow
+3. Send a new email to the connected inbox
+4. Open **Approvals** to review the generated reply
+        """
+    )
+
+    workflow_connect_options = {
+        workflow.get(
+            "name",
+            "Unnamed workflow",
+        ): workflow.get(
+            "id"
+        )
+        for workflow in workflows
+        if workflow.get(
+            "id"
+        )
+    }
+
+    gmail_workflow_label = st.selectbox(
+        "Workflow for incoming Gmail",
+        options=list(
+            workflow_connect_options.keys()
+        ),
+        key="gmail.workflow",
+    )
+
+    selected_gmail_workflow_id = (
+        workflow_connect_options[
+            gmail_workflow_label
+        ]
+    )
+
+    if st.button(
+        "Connect Gmail",
+        type="primary",
+        key="gmail.connect",
+    ):
+        try:
+            authorization_url = (
+                api.gmail_connect_url(
+                    workflow_id=(
+                        selected_gmail_workflow_id
+                    ),
+                )
+            )
+
+        except ApiError as error:
+            st.error(
+                error.message
+            )
+
+        else:
+            st.session_state[
+                "gmail.authorization_url"
+            ] = authorization_url
+
+    authorization_url = (
+        st.session_state.get(
+            "gmail.authorization_url"
+        )
+    )
+
+    if authorization_url:
+        st.success(
+            (
+                "Gmail authorization is ready. "
+                "Continue with Google to connect "
+                "this workflow."
+            )
+        )
+
+        st.link_button(
+            "Continue with Google",
+            authorization_url,
+            type="primary",
+        )
