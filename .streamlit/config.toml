@@ -1,5 +1,7 @@
 [server]
 maxUploadSize = 10
+enableCORS = true
+corsAllowedOrigins = ["https://flowpilot-4jbu66j5oa-el.a.run.app"]
 
 [theme]
 primaryColor = "#E76F51"

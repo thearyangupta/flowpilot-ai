@@ -1,12 +1,19 @@
-from fastapi.responses import RedirectResponse
-from app.core.config import get_settings
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
-from app.models.workflow import Workflow
-from app.models.project import Project
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    status,
+)
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.api.dependencies import get_current_user
 from app.core.cipher import get_token_cipher
+from app.core.config import get_settings
 from app.core.oauth import (
     GOOGLE_GMAIL_SCOPES,
     GOOGLE_IDENTITY_SCOPES,
@@ -14,9 +21,21 @@ from app.core.oauth import (
 )
 from app.core.security import create_access_token
 from app.db.session import get_db
+from app.models.project import Project
+from app.models.user import User
+from app.models.workflow import Workflow
 from app.schemas.auth import (
+    AccessTokenRead,
     GoogleOAuthCallbackRead,
     GoogleOAuthStartRead,
+    LoginCodeExchangeCreate,
+)
+from app.services.auth.login_code_service import (
+    LoginCodeAlreadyConsumedError,
+    LoginCodeExpiredError,
+    LoginCodeNotFoundError,
+    consume_login_code,
+    issue_login_code,
 )
 from app.services.auth.oauth_callback_service import (
     OAuthCallbackError,
@@ -26,17 +45,7 @@ from app.services.auth.oauth_start_service import (
     OAuthStartError,
     create_google_oauth_start,
 )
-from app.api.dependencies import get_current_user
-from app.models.user import User
-from app.schemas.auth import AccessTokenRead,LoginCodeExchangeCreate
 
-
-from app.services.auth.login_code_service import (
-    LoginCodeAlreadyConsumedError,
-    LoginCodeExpiredError,
-    LoginCodeNotFoundError,
-    consume_login_code,
-)
 
 router = APIRouter()
 
@@ -71,6 +80,7 @@ def start_google_oauth(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Google authorization could not be started.",
         ) from error
+
 
 @router.get(
     "/integrations/gmail/connect",
@@ -132,6 +142,7 @@ def connect_gmail(
             ),
         ) from error
 
+
 @router.get(
     "/auth/google/callback",
     tags=["authentication"],
@@ -167,17 +178,23 @@ def finish_google_oauth(
             cipher=get_token_cipher(),
         )
 
-        db.commit()
-
         if result.purpose == OAuthPurpose.LOGIN:
             settings = get_settings()
+
+            login_code = issue_login_code(
+                db,
+                user_id=result.user.id,
+            )
 
             access_token = create_access_token(
                 result.user.id
             )
 
+            db.commit()
+
             redirect_url = (
                 f"{settings.streamlit_app_url.rstrip('/')}/"
+                f"?login_code={login_code.code}"
             )
 
             response = RedirectResponse(
@@ -200,6 +217,8 @@ def finish_google_oauth(
 
             return response
 
+        db.commit()
+
         return GoogleOAuthCallbackRead(
             status="gmail_connected",
             user=result.user,
@@ -214,6 +233,7 @@ def finish_google_oauth(
                 "Google OAuth callback could not be completed."
             ),
         ) from callback_error
+
 
 @router.post(
     "/auth/login-code/exchange",
@@ -251,6 +271,7 @@ def exchange_login_code(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Login code is invalid or expired.",
         ) from error
+
 
 @router.get(
     "/auth/logout",
