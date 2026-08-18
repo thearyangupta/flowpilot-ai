@@ -33,6 +33,14 @@ class GmailMessageRetrievalError(GmailPollError):
     """Raised when a Gmail message cannot be retrieved."""
 
 
+class GmailHistoryCursorError(GmailPollError):
+    """Raised when Gmail cannot provide a valid history cursor."""
+
+
+class GmailHistoryExpiredError(GmailPollError):
+    """Raised when the saved Gmail history cursor is no longer valid."""
+
+
 @dataclass(frozen=True)
 class GmailMessageReference:
     provider_message_id: str
@@ -43,6 +51,7 @@ class GmailMessageReference:
 class GmailMessagePage:
     messages: tuple[GmailMessageReference, ...]
     next_page_token: str | None
+
 
 @dataclass(frozen=True)
 class GmailHistoryMessage:
@@ -55,6 +64,12 @@ class GmailHistoryPage:
     messages: tuple[GmailHistoryMessage, ...]
     next_page_token: str | None
     history_id: str | None
+
+
+@dataclass(frozen=True)
+class GmailHistoryPollResult:
+    messages: tuple[GmailHistoryMessage, ...]
+    history_id: str
 
 
 def list_gmail_messages(
@@ -116,6 +131,48 @@ def list_gmail_messages(
     )
 
 
+def get_gmail_history_cursor(
+    db: Session,
+    *,
+    user_id: UUID,
+) -> str:
+    """
+    Return Gmail's current mailbox history cursor.
+
+    This is used as the baseline when Gmail is connected so
+    existing mailbox messages are not treated as new events.
+    """
+
+    gmail = build_gmail_client(
+        db=db,
+        user_id=user_id,
+    )
+
+    try:
+        response: dict[str, Any] = (
+            gmail.users()
+            .getProfile(
+                userId="me",
+            )
+            .execute()
+        )
+
+    except Exception as error:
+        raise GmailHistoryCursorError(
+            "Gmail history cursor could not be retrieved."
+        ) from error
+
+    history_id = str(
+        response.get("historyId") or ""
+    ).strip()
+
+    if not history_id:
+        raise GmailHistoryCursorError(
+            "Gmail did not return a history cursor."
+        )
+
+    return history_id
+
 
 def get_gmail_message(
     db: Session,
@@ -166,9 +223,10 @@ def poll_selected_messages(
     query: str,
 ) -> tuple[GmailMessageReference, ...]:
     """
-    Poll every page of Gmail search results.
+    Legacy/developer query polling.
 
-    Returns all matching message references.
+    Kept for reconciliation and explicit diagnostic searches.
+    Production Gmail automation uses Gmail history polling.
     """
 
     collected: list[GmailMessageReference] = []
@@ -224,35 +282,70 @@ def list_gmail_history(
         )
 
     except Exception as error:
+        status = getattr(
+            getattr(error, "resp", None),
+            "status",
+            None,
+        )
+
+        if status == 404:
+            raise GmailHistoryExpiredError(
+                "Saved Gmail history cursor is no longer valid."
+            ) from error
+
         raise GmailMessageListError(
             "Gmail history could not be listed."
         ) from error
 
     collected: list[GmailHistoryMessage] = []
 
-    for history_record in response.get("history", []):
+    for history_record in response.get(
+        "history",
+        [],
+    ):
         for added in history_record.get(
             "messagesAdded",
             [],
         ):
-            message = added.get("message", {})
+            message = added.get(
+                "message",
+                {},
+            )
 
-            provider_message_id = message.get("id")
+            provider_message_id = message.get(
+                "id"
+            )
 
             if not provider_message_id:
                 continue
 
             collected.append(
                 GmailHistoryMessage(
-                    provider_message_id=provider_message_id,
-                    provider_thread_id=message.get("threadId"),
+                    provider_message_id=(
+                        provider_message_id
+                    ),
+                    provider_thread_id=(
+                        message.get("threadId")
+                    ),
                 )
             )
 
+    history_id_raw = response.get(
+        "historyId"
+    )
+
+    history_id = (
+        str(history_id_raw)
+        if history_id_raw is not None
+        else None
+    )
+
     return GmailHistoryPage(
         messages=tuple(collected),
-        next_page_token=response.get("nextPageToken"),
-        history_id=response.get("historyId"),
+        next_page_token=(
+            response.get("nextPageToken")
+        ),
+        history_id=history_id,
     )
 
 
@@ -261,10 +354,20 @@ def poll_gmail_history(
     *,
     user_id: UUID,
     start_history_id: str,
-) -> tuple[GmailHistoryMessage, ...]:
+) -> GmailHistoryPollResult:
+    """
+    Return all Gmail messages added after start_history_id
+    together with the latest history cursor.
+
+    Duplicate message IDs are removed because Gmail history
+    may mention the same message in multiple history records.
+    """
+
     collected: list[GmailHistoryMessage] = []
+    seen_message_ids: set[str] = set()
 
     page_token: str | None = None
+    latest_history_id = start_history_id
 
     while True:
         page = list_gmail_history(
@@ -274,11 +377,30 @@ def poll_gmail_history(
             page_token=page_token,
         )
 
-        collected.extend(page.messages)
+        if page.history_id:
+            latest_history_id = page.history_id
+
+        for message in page.messages:
+            if (
+                message.provider_message_id
+                in seen_message_ids
+            ):
+                continue
+
+            seen_message_ids.add(
+                message.provider_message_id
+            )
+
+            collected.append(
+                message
+            )
 
         if page.next_page_token is None:
             break
 
         page_token = page.next_page_token
 
-    return tuple(collected)
+    return GmailHistoryPollResult(
+        messages=tuple(collected),
+        history_id=latest_history_id,
+    )

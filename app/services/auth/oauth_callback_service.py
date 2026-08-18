@@ -45,6 +45,12 @@ from app.services.auth.oauth_token_service import (
     MissingGoogleScopes,
     ensure_granted_google_scopes,
 )
+from app.services.google.gmail_cursor_service import (
+    save_gmail_history_cursor,
+)
+from app.services.google.gmail_poll_service import (
+    get_gmail_history_cursor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -204,6 +210,19 @@ def _complete_gmail_connect_callback(
         connection=connection,
         token_data=token_data,
         cipher=cipher,
+    )
+
+    db.flush()
+
+    history_id = get_gmail_history_cursor(
+        db=db,
+        user_id=user_id,
+    )
+
+    save_gmail_history_cursor(
+        db=db,
+        connection=connection,
+        history_id=history_id,
     )
 
     db.flush()

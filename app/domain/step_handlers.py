@@ -79,9 +79,9 @@ def prepare_email_handler(
             "Email sender is required"
         )
 
-    if not body_text:
+    if not subject and not body_text:
         raise ValueError(
-            "Email body_text is required"
+            "Email subject or body_text is required"
         )
 
     if not provider_message_id:
@@ -91,13 +91,12 @@ def prepare_email_handler(
 
     result = data.copy()
 
-    result["email_text"] = "\n".join(
-        part
-        for part in (
-            subject,
-            body_text,
-        )
-        if part
+    # Prefer the real body when available.
+    # Fall back to the subject for subject-only emails.
+    result["email_text"] = (
+        body_text
+        if body_text
+        else subject
     )
 
     result["source_message"] = {

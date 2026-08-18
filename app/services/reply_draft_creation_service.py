@@ -67,9 +67,15 @@ def create_grounded_pending_reply(
             "Source message sender is required."
         )
 
-    if not body_text:
+    message_text = (
+        body_text
+        if body_text
+        else subject
+)
+
+    if not message_text:
         raise ReplyDraftCreationError(
-            "Source message body is required."
+            "Source message subject or body is required."
         )
 
     if not message_id:
@@ -77,11 +83,7 @@ def create_grounded_pending_reply(
             "Source Gmail message id is required."
         )
 
-    query = "\n".join(
-        part
-        for part in (subject, body_text)
-        if part
-    )
+    query = message_text
 
     hits = hybrid_search(
         db=db,
@@ -114,7 +116,7 @@ def create_grounded_pending_reply(
     generated_reply = reply_provider.generate(
         sender=sender,
         subject=subject,
-        body_text=body_text,
+        body_text=message_text,
         knowledge_context=knowledge_context,
     )
 
