@@ -41,8 +41,53 @@ except ApiError as error:
 if not projects:
     st.info(
         "No projects exist yet. "
-        "Create a project before adding workflows."
+        "Create your first project below."
     )
+
+    with st.form(
+        "project.create",
+        clear_on_submit=True,
+    ):
+        project_name = st.text_input(
+            "Project name",
+            max_chars=255,
+            placeholder=(
+                "Customer Support Automation"
+            ),
+        )
+
+        create_project_submitted = (
+            st.form_submit_button(
+                "Create project",
+                type="primary",
+            )
+        )
+
+    if create_project_submitted:
+        cleaned_name = (
+            project_name.strip()
+        )
+
+        if not cleaned_name:
+            st.error(
+                "Project name is required."
+            )
+
+        else:
+            try:
+                api.create_project(
+                    name=cleaned_name,
+                )
+
+            except ApiError as error:
+                st.error(error.message)
+
+            else:
+                st.toast(
+                    "Project created"
+                )
+                st.rerun()
+
     st.stop()
 
 

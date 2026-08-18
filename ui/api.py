@@ -249,6 +249,39 @@ class FlowPilotClient:
 
         return projects
 
+    def create_project(
+        self,
+        *,
+        name: str,
+    ) -> dict[str, Any]:
+        result = self.request(
+            "POST",
+            "/api/v1/projects",
+            json={
+                "name": name,
+            },
+        )
+
+        if not isinstance(result, dict):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        project_id = result.get("id")
+        project_name = result.get("name")
+
+        if (
+            not isinstance(project_id, str)
+            or not isinstance(project_name, str)
+        ):
+            raise ApiError(
+                502,
+                "FlowPilot API returned an invalid response",
+            )
+
+        return result
+
 
 
     def create_workflow(
