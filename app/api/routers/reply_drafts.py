@@ -40,7 +40,9 @@ from app.services.reply_draft_service import (
     ReplyDraftNotFoundError,
     StaleReplyDraftRevisionError,
 )
-
+from app.worker.reply_draft_tasks import (
+    send_approved_reply_draft,
+)
 
 router = APIRouter()
 
@@ -180,7 +182,7 @@ def approve_reply_draft(
     db: Session = Depends(get_db),
 ) -> ReplyDraftRead:
     try:
-        return (
+        draft = (
             reply_draft_service
             .approve(
                 db=db,
@@ -191,6 +193,14 @@ def approve_reply_draft(
                 ),
             )
         )
+
+        send_approved_reply_draft.delay(
+            str(draft.id),
+            str(current_user.id),
+            draft.current_revision_number,
+        )
+
+        return draft
 
     except ReplyDraftNotFoundError as error:
         raise HTTPException(

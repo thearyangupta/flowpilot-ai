@@ -24,6 +24,11 @@ class Settings(BaseSettings):
 
     gmail_poll_query: str = ""
 
+    r2_endpoint_url: str = ""
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    r2_bucket_name: str = "flowpilot-knowledge"
+
     redis_broker_url: str = "redis://localhost:6379/0"
     redis_result_url: str = "redis://localhost:6379/1"
 

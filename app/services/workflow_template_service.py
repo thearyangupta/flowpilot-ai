@@ -66,17 +66,30 @@ def build_workflow_from_template(
                 "steps": [
                     {
                         "position": 1,
+                        "step_type": "prepare_email",
+                        "config": {},
+                    },
+                    {
+                        "position": 2,
                         "step_type": "classify_email",
                         "config": {
-                            "input_key": "body_text",
+                            "input_key": "email_text",
                             "output_key": "decision",
                         },
                     },
                     {
-                        "position": 2,
+                        "position": 3,
                         "step_type": "require_key",
                         "config": {
                             "key": "decision",
+                        },
+                    },
+                    {
+                        "position": 4,
+                        "step_type": "create_reply_draft",
+                        "config": {
+                            "input_key": "source_message",
+                            "output_key": "reply_draft",
                         },
                     },
                 ],

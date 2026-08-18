@@ -1,8 +1,18 @@
+from __future__ import annotations
+
+import logging
+
 from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.models.oauth_connection import OAuthConnection
+from app.services.auth.oauth_token_service import (
+    MissingGoogleScopes,
+)
+from app.services.google.gmail_ingestion_service import (
+    ingest_gmail_message,
+)
 from app.services.google.gmail_message_service import (
     normalize_gmail_message,
 )
@@ -14,10 +24,10 @@ from app.services.google.gmail_trigger_service import (
     GmailTriggerPayload,
     trigger_email_workflow,
 )
-from app.services.google.gmail_ingestion_service import (
-    ingest_gmail_message,
-)
 from app.worker.celery_app import celery_app
+
+
+logger = logging.getLogger(__name__)
 
 
 @celery_app.task(
@@ -39,54 +49,112 @@ def poll_connected_accounts() -> None:
         for connection in connections:
             user_id = connection.user_id
 
-            message_references = poll_selected_messages(
-                db=db,
-                user_id=user_id,
-                query=query,
-            )
-
-            for message_reference in message_references:
-                raw_message = get_gmail_message(
-                    db=db,
-                    user_id=user_id,
-                    provider_message_id=message_reference.provider_message_id,
+            try:
+                message_references = (
+                    poll_selected_messages(
+                        db=db,
+                        user_id=user_id,
+                        query=query,
+                    )
                 )
 
-                message = normalize_gmail_message(raw_message)
+                for (
+                    message_reference
+                ) in message_references:
+                    raw_message = (
+                        get_gmail_message(
+                            db=db,
+                            user_id=user_id,
+                            provider_message_id=(
+                                message_reference
+                                .provider_message_id
+                            ),
+                        )
+                    )
 
-                ingestion = ingest_gmail_message(
-                    db=db,
-                    user_id=user_id,
-                    provider_message_id=message.provider_message_id,
-                    provider_thread_id=message.provider_thread_id,
-                    sender=message.sender,
-                    subject=message.subject,
-                    body_text=message.body_text,
-                    body_hash=message.body_hash,
-                )
+                    message = (
+                        normalize_gmail_message(
+                            raw_message
+                        )
+                    )
 
-                if not ingestion.created:
-                    continue
+                    ingestion = (
+                        ingest_gmail_message(
+                            db=db,
+                            user_id=user_id,
+                            provider_message_id=(
+                                message
+                                .provider_message_id
+                            ),
+                            provider_thread_id=(
+                                message
+                                .provider_thread_id
+                            ),
+                            sender=message.sender,
+                            subject=message.subject,
+                            body_text=message.body_text,
+                            body_hash=message.body_hash,
+                        )
+                    )
 
-                if connection.workflow_id is None:
+                    if not ingestion.created:
+                        continue
+
+                    if (
+                        connection.workflow_id
+                        is None
+                    ):
+                        db.commit()
+                        continue
+
+                    payload = GmailTriggerPayload(
+                        user_id=user_id,
+                        workflow_id=(
+                            connection.workflow_id
+                        ),
+                        provider_message_id=(
+                            message
+                            .provider_message_id
+                        ),
+                        sender=message.sender,
+                        subject=message.subject,
+                        body_text=message.body_text,
+                    )
+
+                    trigger_email_workflow(
+                        db=db,
+                        payload=payload,
+                    )
+
                     db.commit()
-                    continue
 
-                payload = GmailTriggerPayload(
-                    user_id=user_id,
-                    workflow_id=connection.workflow_id,
-                    provider_message_id=message.provider_message_id,
-                    sender=message.sender,
-                    subject=message.subject,
-                    body_text=message.body_text,
+            except MissingGoogleScopes as error:
+                db.rollback()
+
+                logger.info(
+                    (
+                        "Skipping Google connection "
+                        "%s because Gmail scopes "
+                        "are unavailable: %s"
+                    ),
+                    connection.id,
+                    error,
                 )
 
-                trigger_email_workflow(
-                    db=db,
-                    payload=payload,
+                continue
+
+            except Exception:
+                db.rollback()
+
+                logger.exception(
+                    (
+                        "Gmail polling failed for "
+                        "Google connection %s."
+                    ),
+                    connection.id,
                 )
 
-                db.commit()
+                continue
 
     finally:
         db.close()

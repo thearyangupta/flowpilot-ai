@@ -83,18 +83,61 @@ class ClassifyEmailStepCreate(StrictRequestModel):
     config: ClassifyEmailConfig
 
 
+class PrepareEmailConfig(StrictRequestModel):
+    pass
+
+
+class PrepareEmailStepCreate(StrictRequestModel):
+    position: int = Field(
+        ge=1,
+        le=100,
+    )
+    step_type: Literal["prepare_email"]
+    config: PrepareEmailConfig = Field(
+        default_factory=PrepareEmailConfig,
+    )
+
+
+class CreateReplyDraftConfig(StrictRequestModel):
+    input_key: str = Field(
+        default="source_message",
+        min_length=1,
+        max_length=255,
+    )
+
+    output_key: str = Field(
+        default="reply_draft",
+        min_length=1,
+        max_length=255,
+    )
+
+
+class CreateReplyDraftStepCreate(
+    StrictRequestModel
+):
+    position: int = Field(
+        ge=1,
+        le=100,
+    )
+    step_type: Literal[
+        "create_reply_draft"
+    ]
+    config: CreateReplyDraftConfig
+
+
 # Pydantic reads step_type and chooses
 # the correct step schema.
 StepCreate = Annotated[
     SetValueStepCreate
     | UppercaseStepCreate
     | RequireKeyStepCreate
-    | ClassifyEmailStepCreate,
+    | ClassifyEmailStepCreate
+    | PrepareEmailStepCreate
+    | CreateReplyDraftStepCreate,
     Field(
         discriminator="step_type",
     ),
 ]
-
 
 class WorkflowCreate(StrictRequestModel):
     name: str = Field(

@@ -1,9 +1,61 @@
 from google import genai
-from google.genai import types
+from google.genai import errors, types
+
 from app.ai.exceptions import AIProviderError
-from app.ai.providers.prompts import SYSTEM_INSTRUCTION, build_prompt,DRAFT_SYSTEM_INSTRUCTION,build_draft_prompt
-from app.ai.schemas import EmailDecision,EmailDraft,GroundedReply
+from app.ai.providers.prompts import (
+    DRAFT_SYSTEM_INSTRUCTION,
+    SYSTEM_INSTRUCTION,
+    build_draft_prompt,
+    build_prompt,
+)
+from app.ai.schemas import (
+    EmailDecision,
+    EmailDraft,
+    GroundedReply,
+)
 from app.core.config import Settings
+from app.core.exceptions import RetryableStepError
+
+
+TRANSIENT_GEMINI_STATUS_CODES = {
+    429,
+    500,
+    502,
+    503,
+    504,
+}
+
+
+def _raise_gemini_provider_error(
+    exc: Exception,
+    *,
+    message: str,
+) -> None:
+    if isinstance(exc, errors.APIError):
+        status_code = getattr(
+            exc,
+            "code",
+            None,
+        )
+
+        if status_code is None:
+            status_code = getattr(
+                exc,
+                "status_code",
+                None,
+            )
+
+        if (
+            status_code
+            in TRANSIENT_GEMINI_STATUS_CODES
+        ):
+            raise RetryableStepError(
+                message
+            ) from exc
+
+    raise AIProviderError(
+        message
+    ) from exc
 
 
 class GeminiDecisionProvider:
@@ -134,6 +186,9 @@ If the reply is adequately supported:
             return response.parsed
 
         except Exception as exc:
-            raise AIProviderError(
-                "Failed to generate grounded reply."
-            ) from exc
+            _raise_gemini_provider_error(
+                exc,
+                message=(
+                    "Failed to generate grounded reply."
+        ),
+    )

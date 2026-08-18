@@ -164,18 +164,6 @@ def _complete_login_callback(
         identity=identity,
     )
 
-    connection = require_google_connection(
-        db=db,
-        user_id=user.id,
-    )
-
-    store_google_credentials(
-        db=db,
-        connection=connection,
-        token_data=token_data,
-        cipher=cipher,
-    )
-
     login_code = issue_login_code(
         db,
         user_id=user.id,

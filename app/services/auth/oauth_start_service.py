@@ -74,19 +74,24 @@ def create_google_oauth_start(
     db.add(attempt)
     db.flush()
 
-    query = urlencode(
-        {
-            "client_id": settings.google_client_id,
-            "redirect_uri": settings.google_redirect_uri,
-            "response_type": "code",
-            "scope": " ".join(requested_scopes),
-            "state": state,
-            "code_challenge": challenge,
-            "code_challenge_method": "S256",
-            "access_type": "offline",
-            "include_granted_scopes": "true",
-        }
-    )
+    query_params = {
+        "client_id": settings.google_client_id,
+        "redirect_uri": settings.google_redirect_uri,
+        "response_type": "code",
+        "scope": " ".join(requested_scopes),
+        "state": state,
+        "code_challenge": challenge,
+        "code_challenge_method": "S256",
+        "access_type": "offline",
+        "include_granted_scopes": "true",
+    }
+
+    if purpose == OAuthPurpose.GMAIL_CONNECT:
+        query_params["prompt"] = "consent"
+
+    query = urlencode(query_params)
+
+    query = urlencode(query_params)
 
     return OAuthStartResult(
         authorization_url=(
