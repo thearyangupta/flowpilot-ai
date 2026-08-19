@@ -13,6 +13,9 @@ It can ingest an incoming email, classify the request, retrieve supporting knowl
 ---
 
 
+
+![FlowPilot AI Agent Workspace](assets/flowpilot-agent-dashboard.png)
+
 ## Try the Live Demo
 
 1. Download [`demo/Refund-Policy.txt`](demo/Refund-Policy.txt).
@@ -82,6 +85,21 @@ Gmail Send
 - **Auth & Integrations:** JWT, Google OAuth 2.0, PKCE, Gmail API
 - **Frontend:** Streamlit
 - **Deployment:** Docker, Google Cloud Run, Cloud Run Worker Pools, Artifact Registry, Secret Manager
+
+
+## Workflow in Action
+
+### Durable Workflow Execution
+
+![FlowPilot Workflow Execution](assets/flowpilot-execution.png)
+
+Each execution exposes its backend steps, status, duration, attempts, and failure information for operational visibility.
+
+### Grounded Draft & Human Approval
+
+![FlowPilot Grounded Draft and Human Approval](assets/flowpilot-approval.png)
+
+AI-generated replies include grounding evidence and remain behind a human approval gate before Gmail sending.
 
 ## Reliability & Safety
 
