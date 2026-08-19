@@ -1,124 +1,184 @@
-# FlowPilot AI
+# FlowPilot AI — Production AI Workflow Automation
 
-FlowPilot AI is a production-oriented **AI workflow automation backend** built with FastAPI, PostgreSQL, Redis, Celery, pgvector, and Google Gemini.
+FlowPilot AI is a production-oriented **AI workflow automation platform** that connects Gmail, asynchronous workflows, Retrieval-Augmented Generation (RAG), and human approval into one reliable system.
 
-It combines reliable asynchronous workflows, Gmail automation, human approval, and a tenant-safe **Retrieval-Augmented Generation (RAG)** pipeline with grounded responses and measurable retrieval quality.
+It can ingest an incoming email, classify the request, retrieve supporting knowledge, generate a grounded reply, pause for human approval, and send the approved response — with retries, idempotency, audit trails, and an explicit `needs_knowledge` outcome when the knowledge base cannot support an answer.
 
-## Tech Stack
+**🔗 Live demo:** https://flowpilot-4jbu66j5oa-el.a.run.app/
 
-**Backend:** Python, FastAPI, SQLAlchemy, PostgreSQL, Alembic  
-**Async:** Redis, Celery, Celery Beat  
-**AI / RAG:** Google Gemini, pgvector, PostgreSQL Full-Text Search  
-**Auth & Integrations:** JWT, Google OAuth 2.0, Gmail API  
-**Infrastructure:** Docker  
-**Testing:** Pytest
+**💻 Code:** https://github.com/thearyangupta/flowpilot-ai
 
-## Key Features
+> ⏳ First load may take a few seconds while the service wakes from idle.
 
-### Workflow & Reliability
+---
 
-- Stateful asynchronous workflow execution
-- Celery workers with dedicated queues
-- Retry policies with exponential backoff and jitter
-- Idempotent execution requests
-- Checkpoint-based recovery and resume
-- Heartbeats and stale-execution recovery
-- Execution events and audit trails
 
-### Gmail Automation
+## Try the Live Demo
 
-- Secure Google OAuth with PKCE and state validation
-- Encrypted OAuth credential storage with key rotation
-- Durable Gmail message ingestion and deduplication
-- MIME normalization
-- AI-powered email classification
-- Threaded Gmail draft creation
-- Human approval before sending
-- Worker-side approval revalidation
+1. Download [`demo/Refund-Policy.txt`](demo/Refund-Policy.txt).
+2. Upload it in the **Knowledge** section.
+3. Connect Gmail and create a Gmail automation workflow.
+4. Send this test email to the connected inbox:
 
-### Knowledge & RAG
+   **Subject:** Refund request for undelivered service
 
-- Knowledge document ingestion and deduplication
-- Token-aware chunking with overlap and versioning
-- Batch and replay-safe embeddings
-- pgvector + HNSW cosine indexing
-- Hybrid vector + full-text retrieval
-- Reciprocal Rank Fusion (RRF)
-- Tenant-safe knowledge retrieval
-- Token-budgeted context construction
-- Grounded Gemini responses with source labels
-- Citation allow-list validation
-- Explicit `needs_knowledge` refusal for unsupported answers
+   **Body:**
 
-### RAG Evaluation
+   I purchased the service 3 days ago, but it has not been delivered yet.
 
-- Versioned golden retrieval cases
-- Recall@k
-- Citation validity rate
-- Unsupported refusal rate
-- p50 / p95 retrieval latency
-- Versioned retrieval configuration comparison
+   I would like to request a refund.
+
+   My order number is FP-TEST-1001.
+
+5. FlowPilot retrieves the refund policy and creates a grounded reply draft.
+6. Review it in **Approvals**, then approve it to send the Gmail reply.
+
+To test hallucination control, send a question not covered by the document:
+
+> Do you offer a 20% student discount?
+
+FlowPilot should return `needs_knowledge` instead of inventing an answer.
+
+---
+
+## What it does
+
+- Automates Gmail-based support workflows with durable background processing.
+- Classifies incoming emails and generates grounded responses using RAG.
+- Uses **hybrid pgvector + PostgreSQL Full-Text Search** with Reciprocal Rank Fusion (RRF).
+- Returns `needs_knowledge` instead of inventing unsupported answers.
+- Requires **human approval before an AI-generated Gmail reply is sent**.
+- Records workflow events, draft revisions, approvals, sends, and audit history.
 
 ## Architecture
 
 ```text
-                         FastAPI
-                            │
-                ┌───────────┼───────────┐
-                ▼           ▼           ▼
-           PostgreSQL    Redis      Gmail / Gemini
-           + pgvector       │
-                │           ▼
-                │      Celery Workers
-                │           │
-                │           ▼
-                │     Workflow Engine
-                │
-                ▼
-        Knowledge Pipeline
-                │
-      ┌─────────┴──────────┐
-      ▼                    ▼
- Vector Search        Full-Text Search
-      │                    │
-      └─────────┬──────────┘
-                ▼
-               RRF
-                ▼
-        Grounded Context
-                ▼
-              Gemini
-                ▼
-       Citation Validation
-                ▼
-     GROUNDED / NEEDS_KNOWLEDGE
+Gmail
+  ↓
+Celery Beat
+  ↓
+Redis
+  ↓
+Celery Worker
+  ↓
+Workflow Engine
+  ↓
+AI Classification
+  ↓
+Hybrid Knowledge Retrieval
+(pgvector + Full-Text Search + RRF)
+  ↓
+Grounded Gemini Response
+  ↓
+Human Approval
+  ↓
+Gmail Send
 ```
 
-## Engineering Highlights
+- **Backend:** FastAPI, SQLAlchemy, PostgreSQL, Alembic
+- **Async:** Redis, Celery, Celery Beat
+- **AI / RAG:** Google Gemini on Vertex AI, pgvector, PostgreSQL Full-Text Search
+- **Retrieval:** vector + keyword search fused using **Reciprocal Rank Fusion (RRF)**
+- **Auth & Integrations:** JWT, Google OAuth 2.0, PKCE, Gmail API
+- **Frontend:** Streamlit
+- **Deployment:** Docker, Google Cloud Run, Cloud Run Worker Pools, Artifact Registry, Secret Manager
 
-FlowPilot is designed around production backend and AI engineering principles:
+## Reliability & Safety
 
-- **Reliability:** retries, idempotency, checkpoints, heartbeats, recovery
-- **Security:** JWT, OAuth PKCE, encrypted credentials, tenant isolation
-- **AI Safety:** structured outputs, bounded context, citation validation, explicit refusal
-- **RAG Quality:** hybrid retrieval, deterministic ranking, golden evaluations and latency measurement
-- **Architecture:** service-layer boundaries, provider abstractions and background workers
+FlowPilot is built around production-oriented backend and AI engineering patterns:
+
+- idempotent execution requests
+- retries with exponential backoff and jitter
+- checkpoint recovery and stale-execution recovery
+- Gmail ingestion deduplication
+- encrypted OAuth credential storage
+- tenant-isolated knowledge retrieval
+- structured AI outputs and citation validation
+- explicit refusal when supporting knowledge is insufficient
+- human approval and worker-side revalidation before sending
+- execution events and reply-draft audit trails
+
+## RAG Pipeline
+
+```text
+Knowledge document
+   ↓
+chunking
+   ↓
+Gemini embeddings
+   ↓
+PostgreSQL + pgvector
+   ↓
+vector search + full-text search
+   ↓
+RRF ranking
+   ↓
+bounded grounded context
+   ↓
+Gemini generation
+   ↓
+citation validation
+   ↓
+GROUNDED / NEEDS_KNOWLEDGE
+```
+
+Retrieval quality is evaluated using versioned golden cases, including **Recall@k, citation validity rate, unsupported refusal rate, and p50/p95 retrieval latency**.
+
+## Production E2E Flow
+
+The deployed system has been verified with a real Gmail workflow:
+
+```text
+Incoming support email
+        ↓
+Gmail polling
+        ↓
+Workflow execution
+        ↓
+Knowledge retrieval
+        ↓
+Grounded AI reply
+        ↓
+Pending human approval
+        ↓
+Approved
+        ↓
+Gmail API send
+        ↓
+Reply delivered
+        ↓
+created → approved → sent audit trail
+```
+
+## Testing
+
+FlowPilot includes automated tests for AI providers, workflow execution, Gmail automation, API behavior, knowledge retrieval, and production-facing reliability paths.
+
+```bash
+pytest -q
+```
 
 ## Project Structure
 
 ```text
-app/
-├── ai/          # Gemini providers and structured AI outputs
-├── api/         # FastAPI routes
-├── core/        # Auth, configuration and encryption
-├── domain/      # Workflow execution rules
-├── evaluation/  # RAG evaluation
-├── models/      # SQLAlchemy models
-├── services/    # Business logic, Gmail and knowledge services
-└── worker/      # Celery workers and scheduled tasks
-
-tests/
-└── ...          # AI, workflow, execution and knowledge tests
+flowpilot-ai/
+│
+├── app/
+│   ├── ai/          # Gemini providers, agent model and structured outputs
+│   ├── api/         # FastAPI routes
+│   ├── core/        # configuration, auth and encryption
+│   ├── domain/      # workflow engine and step registry
+│   ├── evaluation/  # RAG evaluation
+│   ├── models/      # SQLAlchemy models
+│   ├── services/    # Gmail, workflow and knowledge services
+│   └── worker/      # Celery tasks and scheduled jobs
+│
+├── deployment/      # Cloud Run worker-pool deployment
+├── tests/           # AI, workflow, Gmail and knowledge tests
+├── ui/              # Streamlit application
+├── Dockerfile
+├── docker-compose.yml
+└── requirements.txt
 ```
 
 ## Run Locally
@@ -132,11 +192,15 @@ venv\Scripts\activate
 
 pip install -r requirements.txt
 alembic upgrade head
+```
 
+Start the API:
+
+```bash
 uvicorn app.main:app --reload
 ```
 
-Run workers:
+Start Celery:
 
 ```bash
 celery -A app.worker.celery_app worker --pool=solo --loglevel=info
@@ -149,14 +213,10 @@ Run tests:
 pytest -q
 ```
 
-## Current Status
+## Tech Stack
 
-FlowPilot currently includes:
+**Python · FastAPI · PostgreSQL · pgvector · Redis · Celery · Google Gemini · Vertex AI · Gmail API · OAuth 2.0 · Streamlit · Docker · Google Cloud Run**
 
-**Workflow Engine → Reliability → Google OAuth → Gmail Automation → Human Approval → Knowledge Ingestion → Embeddings → Hybrid Retrieval → Grounded Generation → RAG Evaluation**
+---
 
-The project is actively being developed as a production-oriented backend and AI engineering system.
-
-## License
-
-Built for learning, portfolio development, and production engineering practice.
+Built to explore production-grade **AI systems, workflow reliability, RAG, human-in-the-loop automation, and cloud deployment** end to end.
