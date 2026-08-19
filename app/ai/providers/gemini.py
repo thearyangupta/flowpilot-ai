@@ -13,6 +13,7 @@ from app.ai.schemas import (
     EmailDraft,
     GroundedReply,
 )
+from app.ai.providers.gemini_client import build_gemini_client
 from app.core.config import Settings
 from app.core.exceptions import RetryableStepError
 
@@ -61,8 +62,8 @@ def _raise_gemini_provider_error(
 class GeminiDecisionProvider:
     def __init__(self, settings: Settings) -> None:
         self._model = settings.gemini_model
-        self._client = genai.Client(
-            api_key=settings.gemini_api_key,
+        self._client = build_gemini_client(
+            settings
         )
 
     def classify(self, email: str) -> EmailDecision:
@@ -87,8 +88,8 @@ class GeminiDecisionProvider:
 class GeminiDraftProvider:
     def __init__(self, settings: Settings) -> None:
         self._model = settings.gemini_model
-        self._client = genai.Client(
-            api_key=settings.gemini_api_key,
+        self._client = build_gemini_client(
+            settings
         )
 
     def draft(
@@ -125,8 +126,8 @@ class GeminiDraftProvider:
 class GeminiGroundedReplyProvider:
     def __init__(self, settings: Settings) -> None:
         self._model = settings.gemini_model
-        self._client = genai.Client(
-            api_key=settings.gemini_api_key,
+        self._client = build_gemini_client(
+            settings
         )
 
     def generate(

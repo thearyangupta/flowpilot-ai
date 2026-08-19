@@ -13,8 +13,12 @@ class Settings(BaseSettings):
     database_url: str
     test_database_url: str = ""
 
+    gemini_backend: str = "api_key"
     gemini_api_key: str
     gemini_model: str = "gemini-3.5-flash"
+
+    google_cloud_project: str = ""
+    google_cloud_location: str = "global"
 
     google_client_id: str
     google_client_secret: str

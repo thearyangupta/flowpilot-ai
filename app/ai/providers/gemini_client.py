@@ -1,20 +1,16 @@
-from langchain_google_genai import (
-    ChatGoogleGenerativeAI,
-)
+from google import genai
 
 from app.core.config import Settings
 
 
-def build_agent_model(
+def build_gemini_client(
     settings: Settings,
-) -> ChatGoogleGenerativeAI:
+) -> genai.Client:
     backend = settings.gemini_backend.strip().lower()
 
     if backend == "api_key":
-        return ChatGoogleGenerativeAI(
-            model=settings.gemini_model,
-            google_api_key=settings.gemini_api_key,
-            temperature=0,
+        return genai.Client(
+            api_key=settings.gemini_api_key,
         )
 
     if backend == "vertex":
@@ -24,12 +20,10 @@ def build_agent_model(
                 "when GEMINI_BACKEND=vertex."
             )
 
-        return ChatGoogleGenerativeAI(
-            model=settings.gemini_model,
+        return genai.Client(
             vertexai=True,
             project=settings.google_cloud_project,
             location=settings.google_cloud_location,
-            temperature=0,
         )
 
     raise ValueError(

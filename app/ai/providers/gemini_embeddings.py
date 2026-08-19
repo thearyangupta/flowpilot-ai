@@ -1,6 +1,7 @@
 from google import genai
 from google.genai import types
 
+from app.ai.providers.gemini_client import build_gemini_client
 from app.core.config import Settings
 from app.services.knowledge.embedding_errors import (
     PermanentEmbeddingError,
@@ -13,8 +14,8 @@ class GeminiEmbedder:
     dimensions = 1536
 
     def __init__(self, settings: Settings) -> None:
-        self._client = genai.Client(
-            api_key=settings.gemini_api_key,
+        self._client = build_gemini_client(
+            settings
         )
 
     def embed(
