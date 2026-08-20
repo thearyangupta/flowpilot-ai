@@ -72,9 +72,15 @@ def keyword_candidates(
     query: str,
     limit: int = 20,
 ) -> list[KeywordCandidate]:
+    normalized_query = " ".join(
+        query.split()
+    )
+
+    bounded_query = normalized_query[:2000]
+
     ts_query = func.websearch_to_tsquery(
         "english",
-        query,
+        bounded_query,
     )
 
     rank = func.ts_rank_cd(
