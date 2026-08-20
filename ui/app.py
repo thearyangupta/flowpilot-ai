@@ -64,26 +64,48 @@ def complete_login(
         )
 
     finally:
-        # Never leave the one-time credential
-        # in the browser URL.
         st.query_params.clear()
 
 
-def render_sign_in(
-    api: FlowPilotClient,
-) -> None:
-    st.title(
-        "FlowPilot AI"
-    )
+def render_public_home() -> None:
+    st.title("FlowPilot AI")
 
-    st.caption(
-        "AI-powered workflow automation with "
-        "agents, knowledge and connected tools."
+    st.subheader(
+        "AI-powered email workflow automation"
     )
 
     st.write(
-        "Sign in to access your FlowPilot workspace."
+        "FlowPilot helps users process incoming Gmail "
+        "messages, use knowledge-grounded AI to prepare "
+        "reply drafts, and review drafts through a "
+        "human-in-the-loop approval workflow."
     )
+
+    st.write(
+        "FlowPilot connects to Gmail only after the user "
+        "authorizes access through Google OAuth."
+    )
+
+    st.markdown("### How FlowPilot uses Gmail")
+
+    st.write(
+        "• Read incoming email content needed to understand "
+        "and process messages."
+    )
+
+    st.write(
+        "• Prepare reply drafts using the user's email "
+        "context and FlowPilot knowledge."
+    )
+
+    st.write(
+        "• Allow the user to review and approve guarded "
+        "email actions."
+    )
+
+    st.divider()
+
+    api = get_api()
 
     try:
         authorization_url = (
@@ -91,11 +113,8 @@ def render_sign_in(
         )
 
     except ApiError as error:
-        st.error(
-            error.message
-        )
-
-        st.stop()
+        st.error(error.message)
+        return
 
     st.link_button(
         "Continue with Google",
@@ -103,7 +122,202 @@ def render_sign_in(
         type="primary",
     )
 
-    st.stop()
+    st.write("")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.page_link(
+            privacy_page,
+            label="Privacy Policy",
+        )
+
+    with col2:
+        st.page_link(
+            terms_page,
+            label="Terms of Service",
+        )
+
+
+def render_privacy_policy() -> None:
+    st.title("FlowPilot AI Privacy Policy")
+
+    st.caption("Effective: August 20, 2026")
+
+    st.markdown(
+        """
+FlowPilot AI is an AI-assisted email workflow application.
+This Privacy Policy explains how FlowPilot handles information
+when you connect your Google account and use the application.
+
+### Information FlowPilot accesses
+
+FlowPilot uses Google OAuth and may request the following Gmail
+permissions:
+
+- **Gmail read-only access** to read email messages and related
+  information required to understand incoming messages and run
+  email workflows.
+- **Gmail compose access** to create and manage email drafts and
+  perform user-authorized email actions.
+
+FlowPilot accesses Google user data only after the user grants
+permission through Google's OAuth consent process.
+
+### How Google user data is used
+
+Google user data is used only to provide FlowPilot's core
+functionality, including:
+
+- processing incoming emails;
+- classifying messages;
+- retrieving relevant user-provided knowledge;
+- generating contextual reply drafts;
+- presenting drafts and supporting evidence for review;
+- performing email actions initiated or approved by the user.
+
+FlowPilot does not use Google user data for advertising,
+profiling for advertising, or selling user information.
+
+### Application data
+
+FlowPilot may retain application data necessary to operate and
+demonstrate its workflows, such as workflow execution state,
+generated draft records, approval records, connected-tool
+configuration, and related operational metadata.
+
+### Data sharing
+
+FlowPilot does not sell Google user data. Information is shared
+with service providers only when required to operate the
+application and provide the requested functionality.
+
+### User control
+
+Users choose whether to authorize FlowPilot through Google
+OAuth. Users can revoke FlowPilot's Google Account access at
+any time from their Google Account security settings.
+
+### Google API Services User Data Policy
+
+FlowPilot's use and transfer of information received from Google
+APIs will adhere to the Google API Services User Data Policy,
+including the Limited Use requirements.
+
+### Security
+
+FlowPilot uses reasonable technical and organizational measures
+designed to protect application and authentication data against
+unauthorized access, disclosure, alteration, or destruction.
+
+### Changes to this policy
+
+This policy may be updated when FlowPilot's functionality or
+data practices change. The current version will remain available
+at this page.
+
+### Contact
+
+For privacy questions regarding FlowPilot AI, contact:
+
+**aryangwork@gmail.com**
+"""
+    )
+
+    st.divider()
+
+    st.page_link(
+        home_page,
+        label="Back to FlowPilot",
+    )
+
+
+def render_terms_of_service() -> None:
+    st.title("FlowPilot AI Terms of Service")
+
+    st.caption("Effective: August 20, 2026")
+
+    st.markdown(
+        """
+By accessing or using FlowPilot AI, you agree to these Terms of
+Service.
+
+### Purpose of FlowPilot
+
+FlowPilot is an AI-assisted workflow application that can connect
+to Gmail, process email content, retrieve relevant knowledge,
+generate reply drafts, and support human review and approval
+before guarded actions are performed.
+
+### Google account access
+
+Some FlowPilot features require authorization through Google
+OAuth. You are responsible for granting only the permissions you
+are comfortable providing and for maintaining control of your
+Google account.
+
+You may revoke FlowPilot's Google Account access at any time
+through your Google Account settings.
+
+### AI-generated content
+
+FlowPilot may generate draft responses or other AI-assisted
+content. AI-generated output may contain mistakes or incomplete
+information.
+
+Users are responsible for reviewing generated content before
+approving, sending, or otherwise relying on it.
+
+### Acceptable use
+
+You agree not to use FlowPilot to:
+
+- violate applicable laws or regulations;
+- access another person's account or information without
+  authorization;
+- send abusive, fraudulent, deceptive, or unlawful content;
+- interfere with the security or operation of the service.
+
+### Availability
+
+FlowPilot may be changed, suspended, or discontinued at any
+time. Continuous or error-free availability is not guaranteed.
+
+### Limitation of responsibility
+
+FlowPilot is provided for demonstration and productivity
+purposes. Users remain responsible for decisions, communications,
+and actions taken using the application.
+
+### Privacy
+
+Use of FlowPilot is also governed by the FlowPilot AI Privacy
+Policy.
+
+### Changes to these terms
+
+These terms may be updated as FlowPilot evolves. The current
+version will remain available on this page.
+
+### Contact
+
+For questions regarding these terms, contact:
+
+**aryangwork@gmail.com**
+"""
+    )
+
+    st.divider()
+
+    st.page_link(
+        privacy_page,
+        label="Privacy Policy",
+    )
+
+    st.page_link(
+        home_page,
+        label="Back to FlowPilot",
+    )
 
 
 initialize_session_state()
@@ -113,12 +327,43 @@ api = get_api()
 complete_login(api)
 
 
+home_page = st.Page(
+    render_public_home,
+    title="FlowPilot AI",
+    url_path="home",
+    icon=":material/home:",
+)
+
+privacy_page = st.Page(
+    render_privacy_policy,
+    title="Privacy Policy",
+    url_path="privacy",
+    icon=":material/privacy_tip:",
+)
+
+terms_page = st.Page(
+    render_terms_of_service,
+    title="Terms of Service",
+    url_path="terms",
+    icon=":material/gavel:",
+)
+
+
 if not st.session_state.get(
     AUTH_ACCESS_TOKEN_KEY
 ):
-    render_sign_in(
-        api
-    )
+    public_pages = [
+        home_page,
+        privacy_page,
+        terms_page,
+    ]
+
+    st.navigation(
+        public_pages,
+        position="hidden",
+    ).run()
+
+    st.stop()
 
 
 with st.sidebar:
@@ -165,9 +410,9 @@ with st.sidebar:
     st.divider()
 
     logout_url = (
-    f"{get_browser_api_base_url()}"
-    "/api/v1/auth/logout"
-)
+        f"{get_browser_api_base_url()}"
+        "/api/v1/auth/logout"
+    )
 
     st.link_button(
         "Logout",
@@ -209,6 +454,8 @@ pages = [
         title="Approvals",
         icon=":material/approval:",
     ),
+    privacy_page,
+    terms_page,
 ]
 
 

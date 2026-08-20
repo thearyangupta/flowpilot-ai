@@ -1,4 +1,5 @@
-﻿from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import HTMLResponse
 from redis import Redis
 from sqlalchemy import text
 
@@ -22,6 +23,207 @@ def create_app() -> FastAPI:
         router,
         prefix="/api/v1",
     )
+
+    @app.api_route(
+        "/home",
+        methods=["GET", "HEAD"],
+        response_class=HTMLResponse,
+        include_in_schema=False,
+    )
+    def public_home() -> str:
+        return """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FlowPilot AI</title>
+  <meta
+    name="description"
+    content="FlowPilot AI is an AI-powered Gmail workflow automation application for email classification, knowledge-grounded reply drafting, and human approval."
+  >
+</head>
+<body>
+  <main>
+    <h1>FlowPilot AI</h1>
+
+    <p>
+      FlowPilot AI is an AI-powered email workflow automation
+      application for Gmail.
+    </p>
+
+    <p>
+      It helps users process incoming Gmail messages, classify
+      emails, retrieve relevant knowledge, generate grounded reply
+      drafts, and review AI-generated actions before approval.
+    </p>
+
+    <h2>How FlowPilot AI works</h2>
+
+    <ul>
+      <li>Reads authorized Gmail messages required for workflows.</li>
+      <li>Classifies and processes incoming email.</li>
+      <li>Uses user-provided knowledge to prepare grounded replies.</li>
+      <li>Creates Gmail reply drafts.</li>
+      <li>Supports human approval before guarded actions.</li>
+    </ul>
+
+    <p>
+      FlowPilot AI only accesses Google data after the user grants
+      permission through Google OAuth.
+    </p>
+
+    <p>
+      <a href="/privacy">Privacy Policy</a>
+      &nbsp;|&nbsp;
+      <a href="/terms">Terms of Service</a>
+    </p>
+  </main>
+</body>
+</html>
+"""
+
+    @app.api_route(
+        "/privacy",
+        methods=["GET", "HEAD"],
+        response_class=HTMLResponse,
+        include_in_schema=False,
+    )
+    def privacy_policy() -> str:
+        return """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FlowPilot AI Privacy Policy</title>
+</head>
+<body>
+  <main>
+    <h1>FlowPilot AI Privacy Policy</h1>
+
+    <p>Effective: August 20, 2026</p>
+
+    <p>
+      FlowPilot AI is an AI-assisted email workflow application.
+      This policy explains how information is handled when users
+      connect a Google account.
+    </p>
+
+    <h2>Google data accessed</h2>
+
+    <p>
+      FlowPilot AI may use Gmail read-only access to read messages
+      needed for workflows and Gmail compose access to create or
+      manage email drafts.
+    </p>
+
+    <h2>How data is used</h2>
+
+    <p>
+      Google user data is used only to provide FlowPilot AI features,
+      including processing incoming email, generating contextual
+      drafts, and supporting user review and approval.
+    </p>
+
+    <p>
+      FlowPilot AI does not sell Google user data or use it for
+      advertising.
+    </p>
+
+    <h2>Google API Services User Data Policy</h2>
+
+    <p>
+      FlowPilot AI's use and transfer of information received from
+      Google APIs adheres to the Google API Services User Data Policy,
+      including the Limited Use requirements.
+    </p>
+
+    <h2>User control</h2>
+
+    <p>
+      Users can revoke FlowPilot AI's Google Account access at any
+      time through their Google Account security settings.
+    </p>
+
+    <h2>Contact</h2>
+
+    <p>aryangwork@gmail.com</p>
+
+    <p><a href="/home">Back to FlowPilot AI</a></p>
+  </main>
+</body>
+</html>
+"""
+
+    @app.api_route(
+        "/terms",
+        methods=["GET", "HEAD"],
+        response_class=HTMLResponse,
+        include_in_schema=False,
+    )
+    def terms_of_service() -> str:
+        return """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FlowPilot AI Terms of Service</title>
+</head>
+<body>
+  <main>
+    <h1>FlowPilot AI Terms of Service</h1>
+
+    <p>Effective: August 20, 2026</p>
+
+    <p>
+      FlowPilot AI provides AI-assisted email workflow automation,
+      including Gmail processing, knowledge retrieval, reply drafting,
+      and human approval workflows.
+    </p>
+
+    <h2>AI-generated content</h2>
+
+    <p>
+      AI-generated drafts may contain mistakes. Users are responsible
+      for reviewing content before approving or sending it.
+    </p>
+
+    <h2>Google account access</h2>
+
+    <p>
+      Some features require Google OAuth authorization. Users may
+      revoke access at any time from their Google Account.
+    </p>
+
+    <h2>Acceptable use</h2>
+
+    <p>
+      Users must not use FlowPilot AI for unlawful, abusive,
+      fraudulent, or unauthorized activity.
+    </p>
+
+    <h2>Availability</h2>
+
+    <p>
+      FlowPilot AI may be changed, suspended, or discontinued and
+      uninterrupted availability is not guaranteed.
+    </p>
+
+    <h2>Contact</h2>
+
+    <p>aryangwork@gmail.com</p>
+
+    <p>
+      <a href="/privacy">Privacy Policy</a>
+      &nbsp;|&nbsp;
+      <a href="/home">Back to FlowPilot AI</a>
+    </p>
+  </main>
+</body>
+</html>
+"""
 
     @app.get(
         "/health",
