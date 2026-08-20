@@ -4,7 +4,7 @@ FlowPilot AI is a production-oriented **AI workflow automation platform** that c
 
 It can ingest an incoming email, classify the request, retrieve supporting knowledge, generate a grounded reply, pause for human approval, and send the approved response — with retries, idempotency, audit trails, and an explicit `needs_knowledge` outcome when the knowledge base cannot support an answer.
 
-**🔗 Live demo:** https://flowpilot-4jbu66j5oa-el.a.run.app/
+**🔗 Live demo:** https://flowpilot-ai.site/
 
 **💻 Code:** https://github.com/thearyangupta/flowpilot-ai
 
