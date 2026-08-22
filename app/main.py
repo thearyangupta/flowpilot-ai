@@ -131,6 +131,44 @@ def create_app() -> FastAPI:
       advertising.
     </p>
 
+    <h2>Data protection and security</h2>
+
+    <p>
+      FlowPilot AI uses technical and organizational safeguards to
+      protect Google user data. OAuth access tokens and refresh tokens
+      are encrypted before storage. Access to application data is
+      restricted to the authenticated user who owns the corresponding
+      FlowPilot resources. Production traffic is transmitted over
+      HTTPS, and application credentials and secrets are stored in
+      protected service configuration rather than exposed to users.
+    </p>
+
+    <p>
+      FlowPilot AI limits Google user data access to the permissions
+      required for the requested Gmail workflow. The application does
+      not sell Google user data or use Google user data for advertising.
+    </p>
+
+    <h2>Data retention and deletion</h2>
+
+    <p>
+      FlowPilot AI retains Gmail-derived application data only for as
+      long as necessary to provide the requested workflow functionality,
+      maintain workflow state, and support user-visible execution and
+      approval records.
+    </p>
+
+    <p>
+      When a user disconnects or revokes Google access, FlowPilot AI
+      stops accessing new Google user data. Users may request deletion
+      of retained Google-derived application data by contacting
+      aryangwork@gmail.com. Deletion requests will remove the applicable
+      retained Google-derived data from active application storage,
+      except where limited information must be retained temporarily for
+      security, fraud-prevention, legal, or operational integrity
+      purposes.
+    </p>
+
     <h2>Google API Services User Data Policy</h2>
 
     <p>
