@@ -102,7 +102,7 @@ def create_app() -> FastAPI:
   <main>
     <h1>FlowPilot AI Privacy Policy</h1>
 
-    <p>Effective: August 22, 2026</p>
+    <p>Effective: August 20, 2026</p>
 
     <p>
       FlowPilot AI is an AI-assisted email workflow application.
@@ -134,70 +134,39 @@ def create_app() -> FastAPI:
     <h2>Data protection and security</h2>
 
     <p>
-      FlowPilot AI uses technical and organizational safeguards designed
-      to protect Google user data and authentication credentials against
-      unauthorized access, disclosure, alteration, or destruction.
+      FlowPilot AI uses technical and organizational safeguards to
+      protect Google user data. OAuth access tokens and refresh tokens
+      are encrypted before storage. Access to application data is
+      restricted to the authenticated user who owns the corresponding
+      FlowPilot resources. Production traffic is transmitted over
+      HTTPS, and application credentials and secrets are stored in
+      protected service configuration rather than exposed to users.
     </p>
 
     <p>
-      FlowPilot AI uses HTTPS/TLS to protect data transmitted between
-      users and the application.
+      FlowPilot AI limits Google user data access to the permissions
+      required for the requested Gmail workflow. The application does
+      not sell Google user data or use Google user data for advertising.
+    </p>
+
+    <h2>Data retention and deletion</h2>
+
+    <p>
+      FlowPilot AI retains Gmail-derived application data only for as
+      long as necessary to provide the requested workflow functionality,
+      maintain workflow state, and support user-visible execution and
+      approval records.
     </p>
 
     <p>
-      Google OAuth access tokens and refresh tokens are encrypted before
-      they are stored by FlowPilot AI. Authentication credentials are
-      not stored as plaintext in the application database.
-    </p>
-
-    <p>
-      Access to Google user data is limited to the application
-      functionality required to provide the user-requested Gmail
-      features. FlowPilot AI requests only the Gmail permissions required
-      for its documented functionality and uses authentication and
-      authorization controls to restrict access to connected-account
-      data.
-    </p>
-
-    <h2>Google user data retention and deletion</h2>
-
-    <p>
-      FlowPilot AI retains Google user data only for as long as
-      reasonably necessary to provide the user-requested functionality
-      and operate the associated workflow features.
-    </p>
-
-    <p>
-      FlowPilot AI may retain workflow execution records, generated
-      reply draft records, approval records, connected-tool
-      configuration, and related operational metadata when necessary to
-      provide workflow history, debugging, security, or other
-      user-facing functionality.
-    </p>
-
-    <p>
-      When a user disconnects their Google account from FlowPilot AI,
-      FlowPilot AI attempts to revoke the Google authorization and
-      deletes the stored OAuth connection and its associated access and
-      refresh credentials from the application database.
-    </p>
-
-    <p>
-      Users may also request deletion of their FlowPilot account data
-      and Google user data stored by FlowPilot AI by contacting
-      aryangwork@gmail.com. FlowPilot AI will review and process
-      deletion requests in accordance with applicable legal and
-      operational requirements.
-    </p>
-
-    <p>
-      Google user data is not retained for advertising, sale, or other
-      unrelated purposes.
-    </p>
-
-    <p>
-      Google user data is not retained for advertising, sale, or other
-      unrelated purposes.
+      When a user disconnects or revokes Google access, FlowPilot AI
+      stops accessing new Google user data. Users may request deletion
+      of retained Google-derived application data by contacting
+      aryangwork@gmail.com. Deletion requests will remove the applicable
+      retained Google-derived data from active application storage,
+      except where limited information must be retained temporarily for
+      security, fraud-prevention, legal, or operational integrity
+      purposes.
     </p>
 
     <h2>Google API Services User Data Policy</h2>

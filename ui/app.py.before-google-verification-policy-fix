@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import streamlit as st
 
@@ -142,7 +142,7 @@ def render_public_home() -> None:
 def render_privacy_policy() -> None:
     st.title("FlowPilot AI Privacy Policy")
 
-    st.caption("Effective: August 22, 2026")
+    st.caption("Effective: August 20, 2026")
 
     st.markdown(
         """
@@ -204,50 +204,11 @@ FlowPilot's use and transfer of information received from Google
 APIs will adhere to the Google API Services User Data Policy,
 including the Limited Use requirements.
 
-### Security and data protection
+### Security
 
-FlowPilot uses technical and organizational safeguards designed
-to protect Google user data and authentication credentials against
+FlowPilot uses reasonable technical and organizational measures
+designed to protect application and authentication data against
 unauthorized access, disclosure, alteration, or destruction.
-
-FlowPilot uses HTTPS/TLS to protect data transmitted between users
-and the application.
-
-Google OAuth access and refresh tokens are encrypted before they
-are stored by FlowPilot. Authentication credentials are not stored
-as plaintext in the application database.
-
-Access to Google user data is limited to the application
-functionality required to provide the user-requested Gmail
-features. FlowPilot requests only the Gmail permissions required
-for its documented functionality and uses authentication and
-authorization controls to restrict access to connected-account
-data.
-
-### Google user data retention and deletion
-
-FlowPilot retains Google user data only for as long as reasonably
-necessary to provide the user-requested functionality and operate
-the associated workflow features.
-
-FlowPilot may retain workflow execution records, generated reply
-draft records, approval records, connected-tool configuration, and
-related operational metadata when necessary to provide workflow
-history, debugging, security, or other user-facing functionality.
-
-When a user disconnects their Google account from FlowPilot,
-FlowPilot attempts to revoke the Google authorization and deletes
-the stored OAuth connection and its associated access and refresh
-credentials from the application database.
-
-Users may also request deletion of their FlowPilot account data
-and Google user data stored by FlowPilot by contacting
-aryangwork@gmail.com. FlowPilot will review and process deletion
-requests in accordance with applicable legal and operational
-requirements.
-
-Google user data is not retained for advertising, sale, or other
-unrelated purposes.
 
 ### Changes to this policy
 

@@ -20,6 +20,9 @@ from sqlalchemy.orm import Session
 from app.ai.agent.flowpilot_tools import (
     build_flowpilot_tools,
 )
+from app.ai.agent.gmail_tools import (
+    build_gmail_agent_tools,
+)
 from app.core.config import Settings
 
 AGENT_SYSTEM_PROMPT = """
@@ -81,8 +84,14 @@ def build_flowpilot_agent(
         settings=settings,
     )
 
+    gmail_tools = build_gmail_agent_tools(
+        db=db,
+        user_id=user_id,
+    )
+
     tools = [
         *flowpilot_tools,
+        *gmail_tools,
         *MCP_AGENT_TOOLS,
     ]
 

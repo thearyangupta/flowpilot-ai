@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 from collections.abc import Callable
@@ -191,7 +191,7 @@ class FlowPilotClient:
             json={
                 "message": message,
             },
-            timeout=60.0,
+            timeout=330.0,
         )
 
         if not isinstance(result, dict):
