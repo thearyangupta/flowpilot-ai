@@ -131,6 +131,30 @@ def create_app() -> FastAPI:
       advertising.
     </p>
 
+    <h2>Google user data sharing and disclosure</h2>
+
+    <p>
+      When a user requests AI-assisted Gmail functionality, FlowPilot AI
+      may transmit relevant Google user data, including Gmail message
+      content such as sender, subject, and message body, to Google Cloud
+      Vertex AI services using Gemini models for processing required to
+      provide contextual analysis and reply-drafting functionality.
+    </p>
+
+    <p>
+      Google user data is shared with these services only as necessary
+      to provide the user-requested FlowPilot AI functionality. FlowPilot
+      AI does not sell Google user data or share it with third parties
+      for advertising or unrelated purposes.
+    </p>
+
+    <p>
+      FlowPilot AI does not disclose Google user data to other third
+      parties except where necessary to provide the requested
+      functionality, comply with applicable law, protect the security
+      of the service, or prevent fraud and abuse.
+    </p>
+
     <h2>Data protection and security</h2>
 
     <p>

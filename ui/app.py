@@ -124,6 +124,19 @@ def render_public_home() -> None:
 
     st.write("")
 
+    st.page_link(
+        demo_page,
+        label="Try Interactive Demo",
+        icon=":material/play_circle:",
+        use_container_width=True,
+    )
+
+    st.caption(
+        "Explore a sample workflow without connecting Gmail."
+    )
+
+    st.write("")
+
     col1, col2 = st.columns(2)
 
     with col1:
@@ -387,12 +400,20 @@ terms_page = st.Page(
     icon=":material/gavel:",
 )
 
+demo_page = st.Page(
+    "pages/demo.py",
+    title="Interactive Demo",
+    url_path="demo",
+    icon=":material/play_circle:",
+)
+
 
 if not st.session_state.get(
     AUTH_ACCESS_TOKEN_KEY
 ):
     public_pages = [
         home_page,
+        demo_page,
         privacy_page,
         terms_page,
     ]
